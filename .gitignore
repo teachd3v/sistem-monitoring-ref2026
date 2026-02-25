@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Credentials & secrets
+credentials.json
+*.pem
+.env
+.env.local
+.env.production
+
+# Legacy backend (Python) - not used in Vercel deployment
+main.py
+
+# OS
+.DS_Store
+Thumbs.db
