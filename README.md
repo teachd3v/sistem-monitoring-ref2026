@@ -28,19 +28,19 @@ A full-stack web application designed for monitoring the achievements of fundrai
 
 ```bash
 git clone <your-repo-url>
-cd sistem-rekening/frontend
+cd sistem-monitoring-ref2026
 npm install
 ```
 
 ### 2. Configure Environment Variables
 
-Create `frontend/.env.local`:
+Create `.env.local`:
 
 ```bash
-cp frontend/.env.example frontend/.env.local
+cp .env.example .env.local
 ```
 
-Edit `frontend/.env.local`:
+Edit `.env.local`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-url.supabase.co
@@ -61,7 +61,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 2. **Deploy on Vercel**:
    - Go to [vercel.com](https://vercel.com) and click "Add New Project"
    - Import your GitHub repository
-   - **Important**: Set Root Directory to `frontend`
+   - Leave Root Directory as default (`./` or root)
    - Add environment variables (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
    - Click "Deploy"
 
