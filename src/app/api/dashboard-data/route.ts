@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { REJECT_MARKER } from '@/lib/constants';
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 
@@ -105,6 +106,7 @@ export async function GET(request: NextRequest) {
     if (!financeValues || financeValues.length === 0) {
       return NextResponse.json({
         summary: { totalDonasi: 0, totalDonatur: 0, totalTransaksi: 0, progressPercent: 0, totalTarget: TOTAL_TARGET },
+        statusBreakdown: { total: 0, tervalidasi: 0, pending: 0, ditolak: 0 },
         weeklyData: [],
         campaignData: [],
         organData: [],
@@ -112,12 +114,29 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Count status breakdown (unfiltered)
+    let countTervalidasi = 0;
+    let countPending = 0;
+    let countDitolak = 0;
+
+    financeValues.forEach((row) => {
+      const validator = row.nama_validator ? row.nama_validator.trim() : '';
+      if (validator === REJECT_MARKER) {
+        countDitolak++;
+      } else if (validator !== '') {
+        countTervalidasi++;
+      } else {
+        countPending++;
+      }
+    });
+
     // Process and filter data
     const validatedData: any[] = [];
 
     financeValues.forEach((row) => {
-      // Skip if not validated
+      // Skip if not validated or rejected
       if (!row.nama_validator || row.nama_validator.trim() === '') return;
+      if (row.nama_validator.trim() === REJECT_MARKER) return;
       if (!row.date || row.date.trim() === '') return;
 
       const dateObj = parseFormattedDate(row.date);
@@ -229,6 +248,12 @@ export async function GET(request: NextRequest) {
         totalTransaksi,
         progressPercent,
         totalTarget: TOTAL_TARGET
+      },
+      statusBreakdown: {
+        total: financeValues.length,
+        tervalidasi: countTervalidasi,
+        pending: countPending,
+        ditolak: countDitolak,
       },
       weeklyData,
       campaignData,

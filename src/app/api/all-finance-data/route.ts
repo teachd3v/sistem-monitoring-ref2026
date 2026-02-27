@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { REJECT_MARKER } from '@/lib/constants';
 
 /**
  * Parse date from formatted string like "Senin, 25/02/2026 10:30:45"
@@ -47,7 +48,14 @@ export async function GET() {
 
     const allData = financeValues.map((row) => {
       const validator = row.nama_validator ? row.nama_validator.trim() : '';
-      const status = validator !== '' ? 'Tervalidasi' : 'Pending';
+      let status: string;
+      if (validator === REJECT_MARKER) {
+        status = 'Ditolak';
+      } else if (validator !== '') {
+        status = 'Tervalidasi';
+      } else {
+        status = 'Pending';
+      }
 
       return {
         id: row.id,

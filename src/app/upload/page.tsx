@@ -14,6 +14,11 @@ export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState('');
 
+  // State untuk preview CSV
+  const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
+  const [previewRows, setPreviewRows] = useState<string[][]>([]);
+  const [totalRows, setTotalRows] = useState(0);
+
   // Cek autentikasi saat halaman dimuat
   useEffect(() => {
     const checkAuth = async () => {
@@ -64,6 +69,60 @@ export default function UploadPage() {
     setLoginPassword('');
   };
 
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const handleFileSelect = (selectedFile: File | null) => {
+    setFile(selectedFile);
+    setStatus('');
+    setPreviewHeaders([]);
+    setPreviewRows([]);
+    setTotalRows(0);
+
+    if (!selectedFile) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+      if (lines.length === 0) return;
+
+      const headers = parseCSVLine(lines[0]);
+      setPreviewHeaders(headers);
+
+      const dataLines = lines.slice(1);
+      setTotalRows(dataLines.length);
+
+      const preview = dataLines.slice(0, 10).map(line => parseCSVLine(line));
+      setPreviewRows(preview);
+    };
+    reader.readAsText(selectedFile);
+  };
+
   const handleUpload = async () => {
     if (!file) return alert('Pilih file CSV dulu ya!');
 
@@ -80,6 +139,9 @@ export default function UploadPage() {
       setStatus(data.message || 'Berhasil diupload!');
 
       setFile(null);
+      setPreviewHeaders([]);
+      setPreviewRows([]);
+      setTotalRows(0);
       const fileInput = document.getElementById('fileInput') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
     } catch (error) {
@@ -173,7 +235,7 @@ export default function UploadPage() {
   // Halaman Upload (setelah login)
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center border border-emerald-100">
+      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full text-center border border-emerald-100 ${previewRows.length > 0 ? 'max-w-5xl' : 'max-w-md'}`}>
         <div className="flex justify-end mb-2">
           <button
             onClick={handleLogout}
@@ -186,21 +248,57 @@ export default function UploadPage() {
           </button>
         </div>
         <h1 className="text-2xl font-bold mb-2 text-emerald-700">Upload Data Penghimpunan</h1>
-        <p className="text-sm text-gray-600 mb-6">REF 2026 - Ramadan Ekstra Fundtastic</p>
+        <p className="text-sm text-gray-600 mb-6">REF 2026 - Ramadan EduAction Festival</p>
         <input
           id="fileInput"
           type="file"
           accept=".csv"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
+          onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
           className="block w-full text-sm text-gray-500 mb-4 cursor-pointer
             file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
             file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
         />
+
+        {/* Preview Tabel CSV */}
+        {previewRows.length > 0 && (
+          <div className="mb-4 text-left">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-700">Preview Data ({totalRows} baris total, menampilkan 10 baris pertama)</h3>
+            </div>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-emerald-50 text-emerald-800 border-b border-gray-200">
+                    <th className="p-2 font-bold text-center border-r border-gray-200 whitespace-nowrap">#</th>
+                    {previewHeaders.map((header, i) => (
+                      <th key={i} className="p-2 font-bold whitespace-nowrap border-r border-gray-200 last:border-r-0">{header}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="text-gray-700">
+                  {previewRows.map((row, rowIdx) => (
+                    <tr key={rowIdx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="p-2 text-center text-gray-400 font-medium border-r border-gray-200 whitespace-nowrap">{rowIdx + 1}</td>
+                      {row.map((cell, cellIdx) => (
+                        <td key={cellIdx} className="p-2 whitespace-nowrap border-r border-gray-200 last:border-r-0 max-w-[200px] truncate" title={cell}>{cell || '-'}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {totalRows > 10 && (
+              <p className="text-xs text-gray-400 mt-2 text-center">... dan {totalRows - 10} baris lainnya</p>
+            )}
+          </div>
+        )}
+
         <button
           onClick={handleUpload}
-          className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white py-2 rounded-lg font-bold hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md hover:shadow-lg mb-4"
+          disabled={!file}
+          className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white py-2 rounded-lg font-bold hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md hover:shadow-lg mb-4 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Proses & Kirim ke Sheet
+          Proses & Kirim Data Finance
         </button>
         {status && <p className="mt-4 font-medium text-gray-700">{status}</p>}
 

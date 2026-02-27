@@ -113,7 +113,7 @@ export default function DashboardPage() {
     );
   }
 
-  const { summary, weeklyData, campaignData, organData, campaignTableData } = dashboardData;
+  const { summary, statusBreakdown, weeklyData, campaignData, organData, campaignTableData } = dashboardData;
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4 md:p-8">
@@ -126,7 +126,7 @@ export default function DashboardPage() {
               <span className="text-3xl">🌙</span>
               <h1 className="text-3xl font-bold text-emerald-700">Dashboard Monitoring</h1>
             </div>
-            <p className="text-lg text-amber-600 font-semibold ml-11">REF 2026 - Ramadan Ekstra Fundtastic</p>
+            <p className="text-lg text-amber-600 font-semibold ml-11">REF 2026 - Ramadan EduAction Festival</p>
           </div>
           <Link href="/" className="text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
             &larr; Kembali
@@ -244,6 +244,30 @@ export default function DashboardPage() {
           </div>
 
         </div>
+
+        {/* Status Breakdown Cards */}
+        {statusBreakdown && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-green-500">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Tervalidasi</div>
+              <div className="text-2xl font-bold text-green-600 mt-1">
+                {statusBreakdown.tervalidasi?.toLocaleString('id-ID') || 0}
+              </div>
+            </div>
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-yellow-500">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Pending</div>
+              <div className="text-2xl font-bold text-yellow-600 mt-1">
+                {statusBreakdown.pending?.toLocaleString('id-ID') || 0}
+              </div>
+            </div>
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-red-500">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Ditolak</div>
+              <div className="text-2xl font-bold text-red-600 mt-1">
+                {statusBreakdown.ditolak?.toLocaleString('id-ID') || 0}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Line Chart: Capaian Pekanan */}
         <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100 mb-6">

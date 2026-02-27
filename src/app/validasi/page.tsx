@@ -203,6 +203,41 @@ export default function ValidasiPage() {
     }
   };
 
+  // Handler untuk REJECT
+  const handleReject = async (item: any) => {
+    const message = item.status === 'Tervalidasi'
+      ? 'Transaksi ini sudah divalidasi. Yakin ingin menolak? Data validasi akan dihapus.'
+      : 'Apakah Anda yakin ingin menolak transaksi ini? Transaksi yang ditolak tidak akan dihitung sebagai donasi.';
+
+    if (!window.confirm(message)) return;
+
+    try {
+      const res = await fetch('/api/reject-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      });
+      if (res.ok) await fetchData();
+    } catch (error) {
+      console.error('Gagal menolak transaksi', error);
+    }
+  };
+
+  const handleUndoReject = async (item: any) => {
+    if (!window.confirm('Apakah Anda yakin ingin membatalkan penolakan? Status akan kembali ke Pending.')) return;
+
+    try {
+      const res = await fetch('/api/reject-transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, undo: true }),
+      });
+      if (res.ok) await fetchData();
+    } catch (error) {
+      console.error('Gagal membatalkan penolakan', error);
+    }
+  };
+
   // Loading screen saat cek autentikasi
   if (authLoading) {
     return (
@@ -294,7 +329,7 @@ export default function ValidasiPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-emerald-700">Validasi Data Penghimpunan</h1>
-            <p className="text-sm text-gray-600 mt-1">REF 2026 - Ramadan Ekstra Fundtastic</p>
+            <p className="text-sm text-gray-600 mt-1">REF 2026 - Ramadan EduAction Festival</p>
           </div>
           <div className="flex items-center gap-4">
             <button
@@ -335,13 +370,17 @@ export default function ValidasiPage() {
                     <td className="p-4 max-w-xs truncate" title={item.keterangan}>{item.keterangan}</td>
                     <td className="p-4 font-bold text-gray-700 whitespace-nowrap">{item.amount}</td>
                     <td className="p-4 whitespace-nowrap">
-                      {item.status === 'Pending' ? (
-                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
-                          Pending
+                      {item.status === 'Ditolak' ? (
+                        <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">
+                          Ditolak
                         </span>
-                      ) : (
+                      ) : item.status === 'Tervalidasi' ? (
                         <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">
                           Tervalidasi
+                        </span>
+                      ) : (
+                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
+                          Pending
                         </span>
                       )}
                     </td>
@@ -369,6 +408,29 @@ export default function ValidasiPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                           </svg>
                         </button>
+
+                        {/* Tombol Reject / Undo Reject */}
+                        {item.status === 'Ditolak' ? (
+                          <button
+                            onClick={() => handleUndoReject(item)}
+                            title="Batalkan Penolakan"
+                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                            </svg>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleReject(item)}
+                            title="Tolak Transaksi"
+                            className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -404,6 +466,13 @@ export default function ValidasiPage() {
               {selectedItem.status === 'Tervalidasi' && (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-lg text-sm mb-2">
                   Data ini sudah divalidasi sebelumnya. Form telah diisi dengan data terakhir yang tersimpan. Anda dapat mengubah dan menyimpan ulang untuk memperbarui data validasi.
+                </div>
+              )}
+
+              {/* Jika ditolak, tampilkan peringatan */}
+              {selectedItem.status === 'Ditolak' && (
+                <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-sm mb-2">
+                  Transaksi ini sebelumnya ditolak. Melakukan validasi akan mengubah status dari Ditolak menjadi Tervalidasi.
                 </div>
               )}
 
