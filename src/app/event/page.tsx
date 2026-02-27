@@ -109,7 +109,7 @@ export default function EventPage() {
           <div>
             <div className="text-3xl mb-2">🎪</div>
             <h1 className="text-2xl font-bold text-emerald-700">Form Input Event Ramadan</h1>
-            <p className="text-sm text-gray-600 mt-1">REF 2026 - Ramadan Ekstra Fundtastic</p>
+            <p className="text-sm text-gray-600 mt-1">REF 2026 - Ramadan EduAction Festival</p>
           </div>
           <Link href="/" className="text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
             &larr; Kembali
