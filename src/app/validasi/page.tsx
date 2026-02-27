@@ -3,10 +3,18 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function ValidasiPage() {
+  // State untuk autentikasi
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginUsername, setLoginUsername] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
   const [dataList, setDataList] = useState<any[]>([]);
   const [dropdowns, setDropdowns] = useState<any>({});
   const [loading, setLoading] = useState(true);
-  
+
   // State untuk Modal Validasi
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -25,6 +33,56 @@ export default function ValidasiPage() {
   });
   const [editStatus, setEditStatus] = useState('');
 
+  // Cek autentikasi saat halaman dimuat
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/check?type=validasi');
+        const data = await res.json();
+        setIsAuthenticated(data.authenticated);
+      } catch {
+        setIsAuthenticated(false);
+      }
+      setAuthLoading(false);
+    };
+    checkAuth();
+  }, []);
+
+  const handleLogin = async (e: any) => {
+    e.preventDefault();
+    setLoginError('');
+    setLoginLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: loginUsername, password: loginPassword, type: 'validasi' })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setIsAuthenticated(true);
+      } else {
+        setLoginError(data.message || 'Login gagal.');
+      }
+    } catch {
+      setLoginError('Terjadi kesalahan. Coba lagi.');
+    }
+    setLoginLoading(false);
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'validasi' })
+    });
+    setIsAuthenticated(false);
+    setLoginUsername('');
+    setLoginPassword('');
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -34,7 +92,7 @@ export default function ValidasiPage() {
       ]);
       const data = await resData.json();
       const drops = await resDrops.json();
-      
+
       setDataList(data);
       setDropdowns(drops);
     } catch (error) {
@@ -44,8 +102,10 @@ export default function ValidasiPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [isAuthenticated]);
 
   const openModal = (item: any) => {
     setSelectedItem(item);
@@ -81,7 +141,7 @@ export default function ValidasiPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault();
-    setSubmitStatus('⏳ Menyimpan Data...');
+    setSubmitStatus('Menyimpan Data...');
 
     const payload = { ...formData, id: selectedItem.id, row_index: selectedItem.row_index };
 
@@ -97,7 +157,7 @@ export default function ValidasiPage() {
         await fetchData(); // Refresh tabel agar status berubah jadi Hijau
       }
     } catch (error) {
-      setSubmitStatus('❌ Gagal menyimpan.');
+      setSubmitStatus('Gagal menyimpan.');
     }
   };
 
@@ -120,7 +180,7 @@ export default function ValidasiPage() {
 
   const handleEditSubmit = async (e: any) => {
     e.preventDefault();
-    setEditStatus('⏳ Mengupdate Data...');
+    setEditStatus('Mengupdate Data...');
 
     const payload = { ...editFormData, id: selectedItem.id, row_index: selectedItem.row_index };
 
@@ -136,13 +196,97 @@ export default function ValidasiPage() {
         await fetchData(); // Refresh tabel
         setEditStatus('');
       } else {
-        setEditStatus('❌ Gagal mengupdate.');
+        setEditStatus('Gagal mengupdate.');
       }
     } catch (error) {
-      setEditStatus('❌ Gagal mengupdate.');
+      setEditStatus('Gagal mengupdate.');
     }
   };
 
+  // Loading screen saat cek autentikasi
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500 font-medium">Memuat...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Halaman Login
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-emerald-100 overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 px-6 py-8 text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-white">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-bold text-white">Validasi Data Finance</h1>
+              <p className="text-emerald-100 text-sm mt-1">REF 2026 - Silakan login untuk melanjutkan</p>
+            </div>
+
+            {/* Form Login */}
+            <form onSubmit={handleLogin} className="p-6 flex flex-col gap-4">
+              {loginError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-medium text-center">
+                  {loginError}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">Username</label>
+                <input
+                  type="text"
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all"
+                  placeholder="Masukkan username..."
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">Password</label>
+                <input
+                  type="password"
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 transition-all"
+                  placeholder="Masukkan password..."
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="mt-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-3 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loginLoading ? 'Memproses...' : 'Masuk'}
+              </button>
+            </form>
+
+            {/* Footer */}
+            <div className="px-6 pb-6 text-center">
+              <Link href="/" className="text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
+                &larr; Kembali ke Menu Utama
+              </Link>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Halaman Validasi (setelah login)
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow-xl border border-emerald-100">
@@ -152,9 +296,20 @@ export default function ValidasiPage() {
             <h1 className="text-2xl font-bold text-emerald-700">Validasi Data Penghimpunan</h1>
             <p className="text-sm text-gray-600 mt-1">REF 2026 - Ramadan Ekstra Fundtastic</p>
           </div>
-          <Link href="/" className="text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
-            &larr; Kembali
-          </Link>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLogout}
+              className="text-red-500 hover:text-red-700 text-sm font-medium flex items-center gap-1 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+              </svg>
+              Logout
+            </button>
+            <Link href="/" className="text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
+              &larr; Kembali
+            </Link>
+          </div>
         </div>
 
         {loading ? (
@@ -182,11 +337,11 @@ export default function ValidasiPage() {
                     <td className="p-4 whitespace-nowrap">
                       {item.status === 'Pending' ? (
                         <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
-                          🕒 Pending
+                          Pending
                         </span>
                       ) : (
                         <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">
-                          ✅ Tervalidasi
+                          Tervalidasi
                         </span>
                       )}
                     </td>
@@ -228,7 +383,7 @@ export default function ValidasiPage() {
       {isModalOpen && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative">
-            
+
             {/* Header Modal */}
             <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold text-gray-800">Form Validasi</h2>
@@ -248,7 +403,7 @@ export default function ValidasiPage() {
               {/* Jika sudah tervalidasi, tampilkan peringatan */}
               {selectedItem.status === 'Tervalidasi' && (
                 <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-lg text-sm mb-2">
-                  ⚠️ Data ini sudah divalidasi sebelumnya. Form telah diisi dengan data terakhir yang tersimpan. Anda dapat mengubah dan menyimpan ulang untuk memperbarui data validasi.
+                  Data ini sudah divalidasi sebelumnya. Form telah diisi dengan data terakhir yang tersimpan. Anda dapat mengubah dan menyimpan ulang untuk memperbarui data validasi.
                 </div>
               )}
 
@@ -299,7 +454,7 @@ export default function ValidasiPage() {
             {/* Form Edit */}
             <form onSubmit={handleEditSubmit} className="p-6 flex flex-col gap-4">
               <div className="bg-orange-50 border border-orange-200 text-orange-800 p-3 rounded-lg text-sm mb-2">
-                ⚠️ Anda sedang mengedit data transaksi. Pastikan data yang dimasukkan sudah benar.
+                Anda sedang mengedit data transaksi. Pastikan data yang dimasukkan sudah benar.
               </div>
 
               <div>
