@@ -15,6 +15,12 @@ interface UploadSummary {
   errors: { row: number; ftNumber: string; message: string }[];
 }
 
+interface ValidationError {
+  row: number;
+  ftNumber: string;
+  message: string;
+}
+
 export default function UploadPage() {
   // State untuk autentikasi
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -28,6 +34,9 @@ export default function UploadPage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [uploading, setUploading] = useState(false);
+
+  // State untuk validasi errors (pre-insertion)
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   // State untuk PIC Organ
   const [organOptions, setOrganOptions] = useState<string[]>([]);
@@ -143,6 +152,7 @@ export default function UploadPage() {
     setTotalRows(0);
     setHeaderWarning('');
     setUploadResult(null);
+    setValidationErrors([]);
 
     if (!selectedFile) return;
 
@@ -180,6 +190,7 @@ export default function UploadPage() {
     setStatusType('loading');
     setUploading(true);
     setUploadResult(null);
+    setValidationErrors([]);
 
     const formData = new FormData();
     formData.append('file', file);
@@ -199,6 +210,19 @@ export default function UploadPage() {
           setUploadResult(data.summary);
         }
         // Reset file input
+        setFile(null);
+        setPreviewHeaders([]);
+        setPreviewRows([]);
+        setTotalRows(0);
+        setHeaderWarning('');
+        const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
+      } else if (data.validationErrors && data.validationErrors.length > 0) {
+        // Validation gate triggered - show per-row errors clearly
+        setValidationErrors(data.validationErrors);
+        setStatusMessage(data.error || 'Upload dibatalkan karena ada kesalahan format.');
+        setStatusType('error');
+        // Reset file input so user can re-select the same (fixed) filename
         setFile(null);
         setPreviewHeaders([]);
         setPreviewRows([]);
@@ -435,6 +459,43 @@ export default function UploadPage() {
             'bg-red-50 border border-red-200 text-red-700'
           }`}>
             {statusMessage}
+          </div>
+        )}
+
+        {/* Validasi Error Table (pre-insertion) */}
+        {validationErrors.length > 0 && (
+          <div className="mt-4 text-left">
+            <div className="bg-red-50 border border-red-300 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-red-100 border-b border-red-300">
+                <p className="text-sm font-bold text-red-800 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                  </svg>
+                  Upload Dibatalkan — {validationErrors.length} Baris Bermasalah Ditemukan
+                </p>
+                <p className="text-xs text-red-600 mt-1">Tidak ada data yang disimpan. Perbaiki semua baris di bawah ini, lalu upload ulang.</p>
+              </div>
+              <div className="overflow-x-auto max-h-72 overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-red-100">
+                    <tr className="text-left text-red-700">
+                      <th className="px-4 py-2 whitespace-nowrap">Baris (CSV)</th>
+                      <th className="px-4 py-2 whitespace-nowrap">FT Number</th>
+                      <th className="px-4 py-2">Keterangan Kesalahan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-red-800">
+                    {validationErrors.map((err, i) => (
+                      <tr key={i} className="border-t border-red-200 hover:bg-red-100">
+                        <td className="px-4 py-2 font-mono font-bold">{err.row}</td>
+                        <td className="px-4 py-2 font-mono">{err.ftNumber || '-'}</td>
+                        <td className="px-4 py-2">{err.message}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 

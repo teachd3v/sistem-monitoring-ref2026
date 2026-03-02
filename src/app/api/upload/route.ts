@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'csv-parse/sync';
 import { supabase } from '@/lib/supabase';
+import { 
+  matchCampaignByAmount, 
+  getKategori, 
+  getMetode, 
+  getJenisDonasi,
+  resolveFallbackCampaign 
+} from '@/lib/reference-data';
 
 // Indonesian day names
 const hariDict: { [key: number]: string } = {
@@ -33,7 +40,7 @@ function formatDateWithDay(dateStr: string): string {
     const seconds = String(date.getSeconds()).padStart(2, '0');
 
     return `${dayName}, ${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  } catch (_) {
+  } catch (error) {
     return dateStr; // Return original if parsing fails
   }
 }
@@ -72,7 +79,7 @@ function extractDateForFT(dateStr: string): string | null {
     const year = date.getFullYear();
 
     return `${day}/${month}/${year}`;
-  } catch (_) {
+  } catch (error) {
     return null;
   }
 }
@@ -99,7 +106,7 @@ function formatAmount(amountStr: string): string {
     // Format with thousand separators using dots
     const formatted = Math.floor(numValue).toLocaleString('id-ID');
     return `Rp ${formatted}`;
-  } catch (_) {
+  } catch (error) {
     return amountStr;
   }
 }
@@ -111,30 +118,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const organ = (formData.get('organ') as string) || '';
-
-    // Fetch rekap_kodeunik untuk auto-tagging campaign
-    // Map: kode_unik (number) → { campaign, organ }
-    const kodeUnikMap = new Map<number, { campaign: string; organ: string }>();
-    try {
-      const { data: kodeUnikData } = await supabase
-        .from('rekap_kodeunik')
-        .select('kode_unik, campaign, organ')
-        .not('kode_unik', 'is', null);
-
-      if (kodeUnikData) {
-        kodeUnikData.forEach((row) => {
-          if (row.kode_unik !== null) {
-            kodeUnikMap.set(Number(row.kode_unik), {
-              campaign: row.campaign || '',
-              organ: row.organ || '',
-            });
-          }
-        });
-      }
-    } catch (_) {
-      // Jika gagal fetch rekap_kodeunik, upload tetap berjalan tanpa auto-tag
-      console.warn('Gagal fetch rekap_kodeunik, auto-tag dinonaktifkan');
-    }
 
     if (!file) {
       return NextResponse.json(
@@ -256,10 +239,15 @@ export async function POST(request: NextRequest) {
       }
       seenFtNumbers.add(ftNumber);
 
-      // Validate date
+      // Validate date - must be non-empty AND parseable
       const dateValue = (cleanRow[dateIndex] || '').trim();
       if (!dateValue) {
         rowErrors.push({ row: rowNum, ftNumber, message: 'Kolom Date kosong' });
+        continue;
+      }
+      const parsedDate = new Date(dateValue);
+      if (isNaN(parsedDate.getTime())) {
+        rowErrors.push({ row: rowNum, ftNumber, message: `Format Date tidak valid: "${dateValue}". Gunakan format seperti: 2/20/2026 6:55:00 AM` });
         continue;
       }
 
@@ -285,20 +273,30 @@ export async function POST(request: NextRequest) {
         : { keterangan: '', namaDonatur: '' };
       const formattedAmount = formatAmount(amountValue);
 
-      // Auto-tag campaign & pelaksana_program berdasarkan 2 digit akhir amount
+      // Auto-tagging berdasarkan rules baru di reference-data.ts
       let autoCampaign = '';
       let autoPelaksanaProgram = '';
       let autoKodeUnik: number | null = null;
+      const autoKategori = getKategori(cleanRow[descriptionIndex] || '');
+      const autoMetode = getMetode(cleanRow[descriptionIndex] || '');
+      // Tipe Donatur default Individu
+      const autoTipeDonatur = 'Individu';
+      let autoJenisDonasi = '';
 
-      if (kodeUnikMap.size > 0) {
-        const numericAmount = Math.round(parseFloat(cleanAmount));
-        const last2Digits = numericAmount % 100;
-        const matched = kodeUnikMap.get(last2Digits);
-        if (matched) {
-          autoCampaign = matched.campaign;
-          autoPelaksanaProgram = matched.organ;
-          autoKodeUnik = last2Digits;
-        }
+      let matchedCampaign = matchCampaignByAmount(cleanAmount);
+      
+      // Jika tidak ada kode unik / tidak cocok, jalankan logic fallback
+      if (!matchedCampaign) {
+        matchedCampaign = resolveFallbackCampaign(dateValue, cleanRow[descriptionIndex] || '');
+      }
+
+      if (matchedCampaign) {
+        autoCampaign = matchedCampaign.nama_campaign;
+        autoPelaksanaProgram = matchedCampaign.pelaksana_program;
+        autoKodeUnik = matchedCampaign.kode_unik ? parseInt(matchedCampaign.kode_unik, 10) : null;
+        
+        // Jenis donasi berdasarkan campaign name logic
+        autoJenisDonasi = getJenisDonasi(autoCampaign);
       }
 
       processedData.push({
@@ -308,12 +306,43 @@ export async function POST(request: NextRequest) {
         keterangan: keterangan,
         amount: formattedAmount,
         organ: organ,
-        // Auto-tagged fields (kosong jika tidak ada match)
+        // Auto-tagged fields
         campaign: autoCampaign,
         pelaksana_program: autoPelaksanaProgram,
         kode_unik: autoKodeUnik,
+        kategori: autoKategori,
+        metode: autoMetode,
+        tipe_donatur: autoTipeDonatur,
+        jenis_donasi: autoJenisDonasi,
       });
     }
+
+    // ── PRE-INSERTION GATE ──────────────────────────────────────────────────
+    // Jika ada SATU SAJA baris yang error (date invalid, FT number kosong, dll)
+    // batalkan seluruh proses. Tidak ada data yang masuk ke DB.
+    if (rowErrors.length > 0) {
+      return NextResponse.json({
+        error: `Upload dibatalkan: ${rowErrors.length} baris memiliki kesalahan format. Tidak ada data yang disimpan. Perbaiki baris yang ditandai lalu upload ulang.`,
+        validationErrors: rowErrors,
+        summary: {
+          totalRows: dataRows.filter(row => {
+            const clean = [...row];
+            while (clean.length > 0 && clean[clean.length - 1] === '') clean.pop();
+            return clean.length > 0;
+          }).length,
+          inserted: 0,
+          dbDuplicates: 0,
+          inFileDuplicates: inFileDuplicates.length,
+          errorRows: rowErrors.length,
+          autoGenerated: 0,
+          dbDuplicateFtNumbers: [],
+          inFileDuplicateFtNumbers: inFileDuplicates.map(r => r.ftNumber),
+          autoGeneratedFtNumbers: [],
+          errors: rowErrors,
+        },
+      }, { status: 400 });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Check for existing FT Numbers in database (batch query to avoid URL length limits)
     const existingFtNumbers = new Set<string>();

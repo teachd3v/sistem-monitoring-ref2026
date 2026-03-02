@@ -162,16 +162,16 @@ export default function ValidasiPage() {
       });
     } else {
       // Untuk data Pending/Ditolak: kosongkan field validator,
-      // tapi tetap pre-fill hasil auto-tag (campaign, kode_unik, pelaksana_program)
+      // tapi tetap pre-fill hasil auto-tag (campaign, kode_unik, pelaksana_program, kategori, tipe_donatur, dll)
       setFormData({
         nama_validator: '',
         kode_unik: String(item.validation?.kode_unik ?? ''),
         campaign: (item.validation?.campaign || '').trim(),
-        tipe_donatur: '',
-        jenis_donasi: '',
-        kategori: '',
+        tipe_donatur: (item.validation?.tipe_donatur || '').trim(),
+        jenis_donasi: (item.validation?.jenis_donasi || '').trim(),
+        kategori: (item.validation?.kategori || '').trim(),
         pelaksana_program: (item.validation?.pelaksana_program || '').trim(),
-        metode: ''
+        metode: (item.validation?.metode || '').trim()
       });
     }
 
