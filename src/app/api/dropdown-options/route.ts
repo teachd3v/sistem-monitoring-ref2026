@@ -18,6 +18,7 @@ export async function GET() {
       'Kategori': [],
       'Pelaksana Program': [],
       'Metode': [],
+      'Organ': [],
     };
 
     if (dropdownData && dropdownData.length > 0) {
@@ -43,6 +44,9 @@ export async function GET() {
             dropdowns['Kategori'].push(nilai);
             break;
           case 'organ':
+            dropdowns['Organ'].push(nilai);
+            dropdowns['Pelaksana Program'].push(nilai);
+            break;
           case 'pelaksana_program':
             dropdowns['Pelaksana Program'].push(nilai);
             break;

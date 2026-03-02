@@ -60,6 +60,8 @@ export async function GET() {
       return {
         id: row.id,
         row_index: row.row_index,
+        ft_number: row.ft_number || '',
+        organ: row.organ || '',
         date: row.date || '',
         nama_donatur: row.nama_donatur || '',
         keterangan: row.keterangan || '',

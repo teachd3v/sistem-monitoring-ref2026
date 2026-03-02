@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
 export default function ValidasiPage() {
@@ -32,6 +32,44 @@ export default function ValidasiPage() {
     date: '', nama_donatur: '', keterangan: '', amount: ''
   });
   const [editStatus, setEditStatus] = useState('');
+
+  // State untuk filter
+  const [filterOrgan, setFilterOrgan] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filtered data
+  const filteredList = useMemo(() => {
+    return dataList.filter((item) => {
+      // Filter by Organ
+      if (filterOrgan && item.organ !== filterOrgan) return false;
+
+      // Filter by Date (compare DD/MM/YYYY from formatted date)
+      if (filterDate) {
+        // filterDate is YYYY-MM-DD, convert to DD/MM/YYYY for comparison
+        const [y, m, d] = filterDate.split('-');
+        const targetDate = `${d}/${m}/${y}`;
+        if (!item.date.includes(targetDate)) return false;
+      }
+
+      // Search by keterangan or nama_donatur
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchKet = (item.keterangan || '').toLowerCase().includes(q);
+        const matchDonatur = (item.nama_donatur || '').toLowerCase().includes(q);
+        const matchFt = (item.ft_number || '').toLowerCase().includes(q);
+        if (!matchKet && !matchDonatur && !matchFt) return false;
+      }
+
+      return true;
+    });
+  }, [dataList, filterOrgan, filterDate, searchQuery]);
+
+  // Get unique organ values for filter dropdown
+  const organOptions = useMemo(() => {
+    const organs = new Set(dataList.map(item => item.organ).filter(Boolean));
+    return Array.from(organs).sort();
+  }, [dataList]);
 
   // Cek autentikasi saat halaman dimuat
   useEffect(() => {
@@ -123,11 +161,17 @@ export default function ValidasiPage() {
         metode: item.validation.metode || ''
       });
     } else {
-      // Kosongkan form untuk data baru
+      // Untuk data Pending/Ditolak: kosongkan field validator,
+      // tapi tetap pre-fill hasil auto-tag (campaign, kode_unik, pelaksana_program)
       setFormData({
-        nama_validator: '', kode_unik: '', campaign: '',
-        tipe_donatur: '', jenis_donasi: '', kategori: '',
-        pelaksana_program: '', metode: ''
+        nama_validator: '',
+        kode_unik: String(item.validation?.kode_unik ?? ''),
+        campaign: (item.validation?.campaign || '').trim(),
+        tipe_donatur: '',
+        jenis_donasi: '',
+        kategori: '',
+        pelaksana_program: (item.validation?.pelaksana_program || '').trim(),
+        metode: ''
       });
     }
 
@@ -347,86 +391,122 @@ export default function ValidasiPage() {
           </div>
         </div>
 
+        {/* Filter Bar */}
+        {!loading && (
+          <div className="flex flex-wrap items-end gap-3 mb-4">
+            {/* Filter Organ */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Organ</label>
+              <select
+                value={filterOrgan}
+                onChange={(e) => setFilterOrgan(e.target.value)}
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[160px]"
+              >
+                <option value="">Semua Organ</option>
+                {organOptions.map((org, i) => (
+                  <option key={i} value={org}>{org}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Tanggal */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Tanggal</label>
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* Search Box */}
+            <div className="flex-grow min-w-[200px]">
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Cari</label>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nama donatur, keterangan, atau FT Number..."
+                className="w-full p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* Reset Filter */}
+            {(filterOrgan || filterDate || searchQuery) && (
+              <button
+                onClick={() => { setFilterOrgan(''); setFilterDate(''); setSearchQuery(''); }}
+                className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                title="Reset semua filter"
+              >
+                Reset
+              </button>
+            )}
+
+            {/* Info jumlah data */}
+            <div className="flex-shrink-0 text-xs text-gray-400 self-end pb-2">
+              {filteredList.length} dari {dataList.length} data
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-20 font-bold text-gray-500">Memuat data tabel...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-gray-100 text-gray-700 text-sm border-b-2 border-gray-200">
-                  <th className="p-4 rounded-tl-lg">Tanggal</th>
-                  <th className="p-4">Nama Donatur</th>
-                  <th className="p-4">Keterangan</th>
-                  <th className="p-4">Nominal</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4 rounded-tr-lg text-center">Aksi</th>
+                <tr className="bg-gray-100 text-gray-700 border-b-2 border-gray-200">
+                  <th className="px-2 py-2.5 rounded-tl-lg">FT Number</th>
+                  <th className="px-2 py-2.5">Organ</th>
+                  <th className="px-2 py-2.5">Tanggal</th>
+                  <th className="px-2 py-2.5">Donatur</th>
+                  <th className="px-2 py-2.5">Keterangan</th>
+                  <th className="px-2 py-2.5">Nominal</th>
+                  <th className="px-2 py-2.5">Status</th>
+                  <th className="px-2 py-2.5 rounded-tr-lg text-center">Aksi</th>
                 </tr>
               </thead>
-              <tbody className="text-sm text-gray-800">
-                {dataList.map((item, index) => (
+              <tbody className="text-gray-800">
+                {filteredList.map((item, index) => (
                   <tr key={index} className="border-b hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-medium whitespace-nowrap">{item.date}</td>
-                    <td className="p-4">{item.nama_donatur || '-'}</td>
-                    <td className="p-4 max-w-xs truncate" title={item.keterangan}>{item.keterangan}</td>
-                    <td className="p-4 font-bold text-gray-700 whitespace-nowrap">{item.amount}</td>
-                    <td className="p-4 whitespace-nowrap">
+                    <td className="px-2 py-2 font-mono text-gray-500 whitespace-nowrap">{item.ft_number || '-'}</td>
+                    <td className="px-2 py-2 whitespace-nowrap">{item.organ || '-'}</td>
+                    <td className="px-2 py-2 font-medium whitespace-nowrap">{item.date}</td>
+                    <td className="px-2 py-2 max-w-[120px] truncate" title={item.nama_donatur}>{item.nama_donatur || '-'}</td>
+                    <td className="px-2 py-2 max-w-[180px] truncate" title={item.keterangan}>{item.keterangan}</td>
+                    <td className="px-2 py-2 font-bold text-gray-700 whitespace-nowrap">{item.amount}</td>
+                    <td className="px-2 py-2 whitespace-nowrap">
                       {item.status === 'Ditolak' ? (
-                        <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold">
-                          Ditolak
-                        </span>
+                        <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-bold">Ditolak</span>
                       ) : item.status === 'Tervalidasi' ? (
-                        <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-bold">
-                          Tervalidasi
-                        </span>
+                        <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-bold">Tervalidasi</span>
                       ) : (
-                        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">
-                          Pending
-                        </span>
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-800 rounded-full text-xs font-bold">Pending</span>
                       )}
                     </td>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center gap-2">
-                        {/* Tombol Edit */}
-                        <button
-                          onClick={() => openEditModal(item)}
-                          title="Edit Data"
-                          className="p-2 text-orange-600 hover:bg-orange-100 rounded-full transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline">
+                    <td className="px-2 py-2 text-center">
+                      <div className="flex justify-center gap-1">
+                        <button onClick={() => openEditModal(item)} title="Edit Data" className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-full transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                             <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
                           </svg>
                         </button>
-
-                        {/* Tombol Validasi */}
-                        <button
-                          onClick={() => openModal(item)}
-                          title="Lihat & Validasi"
-                          className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-full transition-colors"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline">
+                        <button onClick={() => openModal(item)} title="Lihat & Validasi" className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-full transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                           </svg>
                         </button>
-
-                        {/* Tombol Reject / Undo Reject */}
                         {item.status === 'Ditolak' ? (
-                          <button
-                            onClick={() => handleUndoReject(item)}
-                            title="Batalkan Penolakan"
-                            className="p-2 text-blue-600 hover:bg-blue-100 rounded-full transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline">
+                          <button onClick={() => handleUndoReject(item)} title="Batalkan Penolakan" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-full transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
                             </svg>
                           </button>
                         ) : (
-                          <button
-                            onClick={() => handleReject(item)}
-                            title="Tolak Transaksi"
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-full transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 inline">
+                          <button onClick={() => handleReject(item)} title="Tolak Transaksi" className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                             </svg>
                           </button>
@@ -444,64 +524,109 @@ export default function ValidasiPage() {
       {/* ================= MODAL POP-UP VALIDASI ================= */}
       {isModalOpen && selectedItem && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto relative">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
 
             {/* Header Modal */}
-            <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center z-10">
+            <div className="sticky top-0 bg-white border-b px-5 py-3 flex justify-between items-center z-10">
               <h2 className="text-lg font-bold text-gray-800">Form Validasi</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-red-500 font-bold text-xl">&times;</button>
             </div>
 
             {/* Info Transaksi */}
-            <div className="p-6 bg-emerald-50 border-b">
-              <p className="text-sm mb-1"><span className="text-gray-500">Tanggal:</span> <span className="font-semibold text-gray-800">{selectedItem.date}</span></p>
-              <p className="text-sm mb-1"><span className="text-gray-500">Nominal:</span> <span className="font-bold text-emerald-600">{selectedItem.amount}</span></p>
-              <p className="text-sm mb-1"><span className="text-gray-500">Keterangan:</span> <span className="font-semibold text-gray-800">{selectedItem.keterangan}</span></p>
-              <p className="text-sm"><span className="text-gray-500">Nama Donatur:</span> <span className="font-semibold text-gray-800">{selectedItem.nama_donatur || '-'}</span></p>
+            <div className="px-5 py-3 bg-emerald-50 border-b text-sm" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.25rem 1rem' }}>
+              {selectedItem.ft_number && <p><span className="text-gray-500">FT Number:</span> <span className="font-mono font-semibold text-gray-800">{selectedItem.ft_number}</span></p>}
+              {selectedItem.organ && <p><span className="text-gray-500">Organ:</span> <span className="font-semibold text-gray-800">{selectedItem.organ}</span></p>}
+              <p><span className="text-gray-500">Tanggal:</span> <span className="font-semibold text-gray-800">{selectedItem.date}</span></p>
+              <p><span className="text-gray-500">Nominal:</span> <span className="font-bold text-emerald-600">{selectedItem.amount}</span></p>
+              <p><span className="text-gray-500">Donatur:</span> <span className="font-semibold text-gray-800">{selectedItem.nama_donatur || '-'}</span></p>
+              <p style={{ gridColumn: 'span 3' }}><span className="text-gray-500">Keterangan:</span> <span className="font-semibold text-gray-800">{selectedItem.keterangan}</span></p>
             </div>
 
-            {/* Form Input */}
-            <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
-              {/* Jika sudah tervalidasi, tampilkan peringatan */}
+            {/* Form Input - Grid 5 kolom */}
+            <form onSubmit={handleSubmit} className="p-5">
+              {/* Peringatan */}
               {selectedItem.status === 'Tervalidasi' && (
-                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-lg text-sm mb-2">
-                  Data ini sudah divalidasi sebelumnya. Form telah diisi dengan data terakhir yang tersimpan. Anda dapat mengubah dan menyimpan ulang untuk memperbarui data validasi.
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 p-2.5 rounded-lg text-xs mb-3">
+                  Data ini sudah divalidasi sebelumnya. Anda dapat mengubah dan menyimpan ulang.
                 </div>
               )}
-
-              {/* Jika ditolak, tampilkan peringatan */}
               {selectedItem.status === 'Ditolak' && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg text-sm mb-2">
-                  Transaksi ini sebelumnya ditolak. Melakukan validasi akan mengubah status dari Ditolak menjadi Tervalidasi.
+                <div className="bg-red-50 border border-red-200 text-red-800 p-2.5 rounded-lg text-xs mb-3">
+                  Transaksi ini sebelumnya ditolak. Validasi akan mengubah status menjadi Tervalidasi.
                 </div>
               )}
 
-              <div>
-                <label className="text-xs font-bold text-gray-600">Nama Validator</label>
-                <select name="nama_validator" value={formData.nama_validator} onChange={handleInputChange} required className="w-full p-2 border border-gray-300 rounded text-sm text-gray-900 bg-white outline-none focus:border-emerald-500">
-                  <option value="">-- Pilih Validator --</option>
-                  {dropdowns['Nama Validator']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600">Kode Unik</label>
-                <input type="text" name="kode_unik" value={formData.kode_unik} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded text-sm text-gray-900 bg-white outline-none focus:border-emerald-500" placeholder="Opsional..." />
-              </div>
-
-              {['Campaign', 'Tipe Donatur', 'Jenis Donasi', 'Kategori', 'Pelaksana Program', 'Metode'].map((field) => (
-                <div key={field}>
-                  <label className="text-xs font-bold text-gray-600">{field}</label>
-                  <select name={field.toLowerCase().replace(' ', '_')} value={(formData as any)[field.toLowerCase().replace(' ', '_')]} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded text-sm text-gray-900 bg-white outline-none focus:border-emerald-500">
-                    <option value="">-- Pilih {field} --</option>
-                    {dropdowns[field]?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }} className="mb-3">
+                {/* Baris 1: 5 item */}
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Nama Validator</label>
+                  <select name="nama_validator" value={formData.nama_validator} onChange={handleInputChange} required className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Nama Validator']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
                   </select>
                 </div>
-              ))}
 
-              <button type="submit" className="mt-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-3 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
-                Simpan Data
-              </button>
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Kode Unik</label>
+                  <input type="text" name="kode_unik" value={formData.kode_unik} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500" placeholder="Opsional..." />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Campaign</label>
+                  <select name="campaign" value={formData.campaign} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Campaign']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Tipe Donatur</label>
+                  <select name="tipe_donatur" value={formData.tipe_donatur} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Tipe Donatur']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Jenis Donasi</label>
+                  <select name="jenis_donasi" value={formData.jenis_donasi} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Jenis Donasi']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                {/* Baris 2: 4 item + tombol */}
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Kategori</label>
+                  <select name="kategori" value={formData.kategori} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Kategori']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Pelaksana Program</label>
+                  <select name="pelaksana_program" value={formData.pelaksana_program} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Pelaksana Program']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600">Metode</label>
+                  <select name="metode" value={formData.metode} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                    <option value="">-- Pilih --</option>
+                    {dropdowns['Metode']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }} className="flex items-end">
+                  <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-1.5 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
+                    Simpan Data
+                  </button>
+                </div>
+              </div>
+
               {submitStatus && <p className="text-center text-sm font-medium mt-1 text-emerald-600">{submitStatus}</p>}
             </form>
 

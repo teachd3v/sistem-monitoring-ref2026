@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import * as XLSX from 'xlsx';
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -26,6 +27,9 @@ export default function DashboardPage() {
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  // Export state
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -103,6 +107,83 @@ export default function DashboardPage() {
     setCurrentImageIndex((prev) => (prev - 1 + selectedImages.length) % selectedImages.length);
   };
 
+  const exportToExcel = async () => {
+    setExportingExcel(true);
+    try {
+      // Fetch semua data dari 3 tabel sekaligus
+      const [financeRes, eventRes, kemitraanRes] = await Promise.all([
+        fetch('/api/all-finance-data'),
+        fetch('/api/all-event-data'),
+        fetch('/api/all-kemitraan-data'),
+      ]);
+
+      if (!financeRes.ok || !eventRes.ok || !kemitraanRes.ok) {
+        throw new Error('Gagal mengambil data dari server');
+      }
+
+      const financeData = await financeRes.json();
+      const eventData = await eventRes.json();
+      const kemitraanData = await kemitraanRes.json();
+
+      // Flatten finance data (ambil field penting)
+      const financeRows = (Array.isArray(financeData) ? financeData : []).map((item: Record<string, unknown>, idx: number) => ({
+        'No': idx + 1,
+        'FT Number': item.ft_number || '-',
+        'Tanggal Transaksi': item.date || '-',
+        'Nama Donatur': item.nama_donatur || '-',
+        'Keterangan': item.keterangan || '-',
+        'Amount': item.amount || '-',
+        'Organ': item.organ || '-',
+        'Status': item.status || '-',
+        'Validator': (item.validation as Record<string, unknown>)?.nama_validator || '-',
+        'Campaign': (item.validation as Record<string, unknown>)?.campaign || '-',
+        'Tipe Donatur': (item.validation as Record<string, unknown>)?.tipe_donatur || '-',
+        'Jenis Donasi': (item.validation as Record<string, unknown>)?.jenis_donasi || '-',
+        'Kategori': (item.validation as Record<string, unknown>)?.kategori || '-',
+        'Pelaksana Program': (item.validation as Record<string, unknown>)?.pelaksana_program || '-',
+        'Metode': (item.validation as Record<string, unknown>)?.metode || '-',
+      }));
+
+      const eventRows = (Array.isArray(eventData) ? eventData : []).map((item: Record<string, unknown>, idx: number) => ({
+        'No': idx + 1,
+        'Tanggal Input': item.timestamp || '-',
+        'Nama Event': item.nama_event || '-',
+        'Lokasi': item.lokasi || '-',
+        'Tanggal Pelaksanaan': item.tanggal_pelaksanaan || '-',
+        'Peserta': item.peserta || '-',
+        'Pelaksana Event': item.pelaksana_event || '-',
+        'PIC Report': item.pic_report || '-',
+      }));
+
+      const kemitraanRows = (Array.isArray(kemitraanData) ? kemitraanData : []).map((item: Record<string, unknown>, idx: number) => ({
+        'No': idx + 1,
+        'Tanggal Input': item.timestamp || '-',
+        'Nama Mitra': item.nama_mitra || '-',
+        'Tanggal Kerjasama': item.tanggal_kerjasama || '-',
+        'Pelaksana': item.pelaksana_event || '-',
+        'PIC Report': item.pic_report || '-',
+      }));
+
+      // Buat workbook dengan 3 sheet
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(financeRows.length > 0 ? financeRows : [{ Info: 'Belum ada data' }]), 'Data Finance');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(eventRows.length > 0 ? eventRows : [{ Info: 'Belum ada data' }]), 'Data Event');
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(kemitraanRows.length > 0 ? kemitraanRows : [{ Info: 'Belum ada data' }]), 'Data Kemitraan');
+
+      XLSX.writeFile(workbook, `Export_REF2026_${Date.now()}.xlsx`);
+    } catch (error) {
+      console.error(error);
+      alert('Terjadi kesalahan saat memproses Export Excel.');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const exportToPDF = () => {
+    // Gunakan browser print dialog — paling simple & reliable
+    window.print();
+  };
+
   if (loading || !dashboardData) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4 md:p-8">
@@ -114,6 +195,19 @@ export default function DashboardPage() {
   }
 
   const { summary, statusBreakdown, weeklyData, campaignData, organData, campaignTableData } = dashboardData;
+
+  // Guard: jika summary tidak ada (misal API error), tampilkan pesan
+  if (!summary) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-20 font-bold text-red-500">
+            Gagal memuat data dashboard. Silakan refresh halaman.
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-4 md:p-8">
@@ -128,10 +222,28 @@ export default function DashboardPage() {
             </div>
             <p className="text-lg text-amber-600 font-semibold ml-11">REF 2026 - Ramadan EduAction Festival</p>
           </div>
-          <Link href="/" className="text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
-            &larr; Kembali
-          </Link>
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+            <button
+              onClick={exportToExcel}
+              disabled={exportingExcel}
+              className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-colors disabled:opacity-50"
+            >
+              📊 {exportingExcel ? 'Mengunduh...' : 'Export Excel'}
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md transition-colors"
+            >
+              📄 Export PDF
+            </button>
+            <Link href="/" className="ml-2 text-emerald-600 hover:text-emerald-800 underline text-sm font-medium">
+              &larr; Kembali
+            </Link>
+          </div>
         </div>
+
+        {/* ===================== AREA UNTUK EXPORT PDF ===================== */}
+        <div id="export-pdf-content" className="p-4 bg-gradient-to-br from-emerald-50 via-white to-amber-50 rounded-xl">
 
         {/* Section 1: Dashboard Penghimpunan */}
         <div className="mb-8">
@@ -512,6 +624,8 @@ export default function DashboardPage() {
 
         </div>
         {/* End of Section 2 */}
+        </div>
+        {/* ============================================================== */}
 
         {/* Image Modal Popup */}
         {isImageModalOpen && selectedImages.length > 0 && (
