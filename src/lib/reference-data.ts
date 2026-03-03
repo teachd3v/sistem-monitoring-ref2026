@@ -42,7 +42,7 @@ export const CampaignList: Campaign[] = [
   { nama_campaign: 'Sedekah Penghafal Al Quran', kode_unik: null, pelaksana_program: 'HOLDING' },
   { nama_campaign: 'Kelas Literasi Kreatif Ramadan', kode_unik: '53', pelaksana_program: 'TEACH' },
   { nama_campaign: 'Pulang Kampung SMART', kode_unik: '02', pelaksana_program: 'SMART' },
-  { nama_campaign: 'Pelukan Ramadan untuk Guru Daerah', kode_unik: null, pelaksana_program: 'TEACH' },
+  { nama_campaign: 'Pelukan Ramadan untuk Guru Daerah', kode_unik: 10, pelaksana_program: 'TEACH' },
   { nama_campaign: 'Berbagi Yatim dan Dhuafa', kode_unik: '06', pelaksana_program: 'HOLDING' },
   { nama_campaign: 'Sedekah Quran', kode_unik: '25', pelaksana_program: 'HOLDING' },
   { nama_campaign: 'Sedekah Subuh dan Sedekah 1 Miliar', kode_unik: '24', pelaksana_program: 'HOLDING' },
@@ -55,7 +55,11 @@ export const CampaignList: Campaign[] = [
   { nama_campaign: 'Berbagi THR Untuk Pelestari Budaya Silat', kode_unik: null, pelaksana_program: 'TEACH' },
   { nama_campaign: 'Zakat Alumni Beasiswa Etos dan BAKTINUSA', kode_unik: '55', pelaksana_program: 'TEACH' },
   { nama_campaign: 'Sedekah Ramadan', kode_unik: null, pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Zakat Ramadan', kode_unik: null, pelaksana_program: 'HOLDING' }
+  { nama_campaign: 'Zakat Ramadan', kode_unik: null, pelaksana_program: 'HOLDING' },
+  { nama_campaign: 'Sedekah Project BA Jakarta', kode_unik: 64, pelaksana_program: 'TEACH' },
+  { nama_campaign: 'Sedekah Project BA Surabaya', kode_unik: 65, pelaksana_program: 'TEACH' },
+  { nama_campaign: 'Sedekah Project BA Palembang', kode_unik: 66, pelaksana_program: 'TEACH' },
+  { nama_campaign: 'Sedekah Project BA Padang', kode_unik: 67, pelaksana_program: 'TEACH' }
 ];
 
 // Combine to general dropdown structure for API compatibility if needed
@@ -101,7 +105,11 @@ export function getJenisDonasi(campaignName: string): string {
     'Ramadan Ini Jangan Biarkan Harapan Mereka Ikut Tenggelam',
     'Cuci AC & Bebersih 100 Masjid',
     'Sedekah Buka Puasa Daerah Bencana',
-    'Berbagi THR Untuk Pelestari Budaya Silat'
+    'Berbagi THR Untuk Pelestari Budaya Silat',
+    'Sedekah Project BA Jakarta',
+    'Sedekah Project BA Surabaya',
+    'Sedekah Project BA Palembang',
+    'Sedekah Project BA Padang'
   ];
   
   if (infakTematikCampaigns.includes(name)) {
