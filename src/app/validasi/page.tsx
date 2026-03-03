@@ -36,6 +36,7 @@ export default function ValidasiPage() {
   // State untuk filter
   const [filterOrgan, setFilterOrgan] = useState('');
   const [filterDate, setFilterDate] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filtered data
@@ -43,6 +44,9 @@ export default function ValidasiPage() {
     return dataList.filter((item) => {
       // Filter by Organ
       if (filterOrgan && item.organ !== filterOrgan) return false;
+
+      // Filter by Status
+      if (filterStatus && item.status !== filterStatus) return false;
 
       // Filter by Date (compare DD/MM/YYYY from formatted date)
       if (filterDate) {
@@ -63,7 +67,7 @@ export default function ValidasiPage() {
 
       return true;
     });
-  }, [dataList, filterOrgan, filterDate, searchQuery]);
+  }, [dataList, filterOrgan, filterDate, filterStatus, searchQuery]);
 
   // Get unique organ values for filter dropdown
   const organOptions = useMemo(() => {
@@ -409,6 +413,21 @@ export default function ValidasiPage() {
               </select>
             </div>
 
+            {/* Filter Status */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[150px]"
+              >
+                <option value="">Semua Status</option>
+                <option value="Pending">🟡 Pending</option>
+                <option value="Tervalidasi">🟢 Tervalidasi</option>
+                <option value="Ditolak">🔴 Ditolak</option>
+              </select>
+            </div>
+
             {/* Filter Tanggal */}
             <div className="flex-shrink-0">
               <label className="text-xs font-bold text-gray-500 mb-1 block">Tanggal</label>
@@ -433,9 +452,9 @@ export default function ValidasiPage() {
             </div>
 
             {/* Reset Filter */}
-            {(filterOrgan || filterDate || searchQuery) && (
+            {(filterOrgan || filterStatus || filterDate || searchQuery) && (
               <button
-                onClick={() => { setFilterOrgan(''); setFilterDate(''); setSearchQuery(''); }}
+                onClick={() => { setFilterOrgan(''); setFilterStatus(''); setFilterDate(''); setSearchQuery(''); }}
                 className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
                 title="Reset semua filter"
               >
