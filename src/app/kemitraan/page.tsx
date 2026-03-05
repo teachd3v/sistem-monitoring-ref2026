@@ -15,21 +15,42 @@ export default function KemitraanPage() {
   const [dokumentasiKegiatan, setDokumentasiKegiatan] = useState<File[]>([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pksError, setPksError] = useState('');
+  const [dokError, setDokError] = useState('');
+
+  const MAX_FILES = 5;
+  const MAX_FILE_SIZE_MB = 10;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handlePKSChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setDokumenPKS(Array.from(e.target.files));
+  const validateFiles = (files: File[], setError: (msg: string) => void, e: React.ChangeEvent<HTMLInputElement>): File[] | null => {
+    setError('');
+    if (files.length > MAX_FILES) {
+      setError(`Maksimal ${MAX_FILES} file. Kamu memilih ${files.length} file.`);
+      e.target.value = '';
+      return null;
     }
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+    if (oversized.length > 0) {
+      setError(`File berikut melebihi ${MAX_FILE_SIZE_MB}MB: ${oversized.map(f => f.name).join(', ')}`);
+      e.target.value = '';
+      return null;
+    }
+    return files;
+  };
+
+  const handlePKSChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const valid = validateFiles(Array.from(e.target.files), setPksError, e);
+    if (valid) setDokumenPKS(valid);
   };
 
   const handleDokumentasiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setDokumentasiKegiatan(Array.from(e.target.files));
-    }
+    if (!e.target.files) return;
+    const valid = validateFiles(Array.from(e.target.files), setDokError, e);
+    if (valid) setDokumentasiKegiatan(valid);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -94,6 +115,8 @@ export default function KemitraanPage() {
         body: formDataToSend
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setStatus('✅ Data kemitraan berhasil disimpan!');
         // Reset form
@@ -110,7 +133,8 @@ export default function KemitraanPage() {
         if (pksInput) pksInput.value = '';
         if (dokInput) dokInput.value = '';
       } else {
-        setStatus('❌ Gagal menyimpan data kemitraan.');
+        const detail = data?.details || data?.error || 'Tidak ada keterangan error.';
+        setStatus(`❌ Gagal menyimpan data kemitraan.\n${detail}`);
       }
     } catch (error) {
       console.error('Error submitting kemitraan:', error);
@@ -179,8 +203,9 @@ export default function KemitraanPage() {
                 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
             />
-            <p className="text-xs text-gray-500 mt-1">Upload dokumen perjanjian kerjasama (PDF, Word, atau gambar)</p>
-            {dokumenPKS.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1">Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file.</p>
+            {pksError && <p className="mt-1 text-xs text-red-600 font-medium">{pksError}</p>}
+            {dokumenPKS.length > 0 && !pksError && (
               <div className="mt-2 text-sm text-purple-600">
                 {dokumenPKS.length} file PKS dipilih
               </div>
@@ -200,8 +225,9 @@ export default function KemitraanPage() {
                 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
             />
-            <p className="text-xs text-gray-500 mt-1">Upload foto atau dokumen kegiatan kemitraan</p>
-            {dokumentasiKegiatan.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1">Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file. Gambar akan dikompres otomatis.</p>
+            {dokError && <p className="mt-1 text-xs text-red-600 font-medium">{dokError}</p>}
+            {dokumentasiKegiatan.length > 0 && !dokError && (
               <div className="mt-2 text-sm text-emerald-600">
                 {dokumentasiKegiatan.length} file dokumentasi dipilih
               </div>
@@ -247,7 +273,7 @@ export default function KemitraanPage() {
 
           {/* Status Message */}
           {status && (
-            <div className={`p-4 rounded-lg text-center font-medium ${
+            <div className={`p-4 rounded-lg text-center font-medium whitespace-pre-line ${
               status.includes('✅') ? 'bg-emerald-50 text-emerald-700' :
               status.includes('❌') ? 'bg-red-50 text-red-700' :
               'bg-blue-50 text-blue-700'

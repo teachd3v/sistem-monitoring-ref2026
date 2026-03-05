@@ -16,15 +16,32 @@ export default function EventPage() {
   const [dokumentasi, setDokumentasi] = useState<File[]>([]);
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [fileError, setFileError] = useState('');
+
+  const MAX_FILES = 5;
+  const MAX_FILE_SIZE_MB = 10;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setDokumentasi(Array.from(e.target.files));
+    setFileError('');
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+
+    if (files.length > MAX_FILES) {
+      setFileError(`Maksimal ${MAX_FILES} file. Kamu memilih ${files.length} file.`);
+      e.target.value = '';
+      return;
     }
+    const oversized = files.filter(f => f.size > MAX_FILE_SIZE_MB * 1024 * 1024);
+    if (oversized.length > 0) {
+      setFileError(`File berikut melebihi ${MAX_FILE_SIZE_MB}MB: ${oversized.map(f => f.name).join(', ')}`);
+      e.target.value = '';
+      return;
+    }
+    setDokumentasi(files);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,6 +92,8 @@ export default function EventPage() {
         body: formDataToSend
       });
 
+      const data = await res.json();
+
       if (res.ok) {
         setStatus('✅ Data event berhasil disimpan!');
         // Reset form
@@ -90,7 +109,8 @@ export default function EventPage() {
         const fileInput = document.getElementById('dokumentasi') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
       } else {
-        setStatus('❌ Gagal menyimpan data event.');
+        const detail = data?.details || data?.error || 'Tidak ada keterangan error.';
+        setStatus(`❌ Gagal menyimpan data event.\n${detail}`);
       }
     } catch (error) {
       console.error('Error submitting event:', error);
@@ -173,8 +193,9 @@ export default function EventPage() {
                 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
             />
-            <p className="text-xs text-gray-500 mt-1">Upload foto atau dokumen kegiatan (bisa lebih dari 1 file)</p>
-            {dokumentasi.length > 0 && (
+            <p className="text-xs text-gray-500 mt-1">Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file. Gambar akan dikompres otomatis.</p>
+            {fileError && <p className="mt-1 text-xs text-red-600 font-medium">{fileError}</p>}
+            {dokumentasi.length > 0 && !fileError && (
               <div className="mt-2 text-sm text-emerald-600">
                 {dokumentasi.length} file dipilih
               </div>
@@ -234,7 +255,7 @@ export default function EventPage() {
 
           {/* Status Message */}
           {status && (
-            <div className={`p-4 rounded-lg text-center font-medium ${
+            <div className={`p-4 rounded-lg text-center font-medium whitespace-pre-line ${
               status.includes('✅') ? 'bg-emerald-50 text-emerald-700' :
               status.includes('❌') ? 'bg-red-50 text-red-700' :
               'bg-blue-50 text-blue-700'
