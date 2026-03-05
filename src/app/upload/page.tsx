@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import * as XLSX from 'xlsx';
 
 interface UploadSummary {
   totalRows: number;
@@ -158,7 +159,7 @@ export default function UploadPage() {
     });
   };
 
-  const parseCSVLine = (line: string): string[] => {
+  const parseCSVLine = (line: string, delimiter = ','): string[] => {
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -172,7 +173,7 @@ export default function UploadPage() {
         } else {
           inQuotes = !inQuotes;
         }
-      } else if (char === ',' && !inQuotes) {
+      } else if (char === delimiter && !inQuotes) {
         result.push(current.trim());
         current = '';
       } else {
@@ -181,6 +182,12 @@ export default function UploadPage() {
     }
     result.push(current.trim());
     return result;
+  };
+
+  const detectCSVDelimiter = (firstLine: string): string => {
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    return semicolonCount > commaCount ? ';' : ',';
   };
 
   const REQUIRED_HEADERS = ['Date', 'Description', 'Amount', 'FT Number'];
@@ -198,34 +205,66 @@ export default function UploadPage() {
 
     if (!selectedFile) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      if (!text) return;
+    const isXlsx = /\.(xlsx|xls)$/i.test(selectedFile.name);
 
-      const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
-      if (lines.length === 0) return;
+    if (isXlsx) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        if (!buffer) return;
 
-      const headers = parseCSVLine(lines[0]);
-      setPreviewHeaders(headers);
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
 
-      // Check for required headers
-      const missing = REQUIRED_HEADERS.filter(h => !headers.includes(h));
-      if (missing.length > 0) {
-        setHeaderWarning(`Header tidak lengkap! Kolom yang tidak ditemukan: ${missing.join(', ')}`);
-      }
+        if (data.length === 0) return;
 
-      const dataLines = lines.slice(1);
-      setTotalRows(dataLines.length);
+        const headers = data[0].map(h => String(h || '').trim());
+        setPreviewHeaders(headers);
 
-      const preview = dataLines.slice(0, 10).map(line => parseCSVLine(line));
-      setPreviewRows(preview);
-    };
-    reader.readAsText(selectedFile);
+        const missing = REQUIRED_HEADERS.filter(h => !headers.includes(h));
+        if (missing.length > 0) {
+          setHeaderWarning(`Header tidak lengkap! Kolom yang tidak ditemukan: ${missing.join(', ')}`);
+        }
+
+        const dataLines = data.slice(1).filter(row => row.some(cell => cell !== '' && cell !== null && cell !== undefined));
+        setTotalRows(dataLines.length);
+
+        const preview = dataLines.slice(0, 10).map(row => row.map(cell => String(cell ?? '')));
+        setPreviewRows(preview);
+      };
+      reader.readAsArrayBuffer(selectedFile);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        if (!text) return;
+
+        const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+        if (lines.length === 0) return;
+
+        const delimiter = detectCSVDelimiter(lines[0]);
+        const headers = parseCSVLine(lines[0], delimiter);
+        setPreviewHeaders(headers);
+
+        const missing = REQUIRED_HEADERS.filter(h => !headers.includes(h));
+        if (missing.length > 0) {
+          setHeaderWarning(`Header tidak lengkap! Kolom yang tidak ditemukan: ${missing.join(', ')}`);
+        }
+
+        const dataLines = lines.slice(1);
+        setTotalRows(dataLines.length);
+
+        const preview = dataLines.slice(0, 10).map(line => parseCSVLine(line, delimiter));
+        setPreviewRows(preview);
+      };
+      reader.readAsText(selectedFile);
+    }
   };
 
   const handleUpload = async () => {
-    if (!file) return alert('Pilih file CSV dulu ya!');
+    if (!file) return alert('Pilih file dulu ya!');
     if (!selectedOrgan) return alert('Pilih PIC Organ dulu ya!');
 
     setStatusMessage('Sedang memproses... Tunggu sebentar');
@@ -394,10 +433,10 @@ export default function UploadPage() {
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" />
               </svg>
-              Panduan Format CSV
+              Panduan Format File
             </h2>
             <a 
-              href="/template_csv_rekening_koran_BSI.csv" 
+              href="/template_csv_rekening_koran_BSI.xlsx"
               download
               className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-bold transition-colors shadow-sm whitespace-nowrap"
             >
@@ -520,7 +559,7 @@ export default function UploadPage() {
         <input
           id="fileInput"
           type="file"
-          accept=".csv"
+          accept=".csv,.xlsx,.xls"
           onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
           className="block w-full text-sm text-gray-500 mb-4 cursor-pointer
             file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0

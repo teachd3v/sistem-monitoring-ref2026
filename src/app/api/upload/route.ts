@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'csv-parse/sync';
+import * as XLSX from 'xlsx';
 import { supabase } from '@/lib/supabase';
 import { 
   matchCampaignByAmount, 
@@ -135,26 +136,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Read file content
-    const fileContent = await file.text();
-
-    // Parse CSV
+    // Parse file based on type
     let records: string[][];
-    try {
-      records = parse(fileContent, {
-        skip_empty_lines: true,
-        relax_column_count: true,
-      });
-    } catch (parseErr) {
-      return NextResponse.json(
-        { error: 'Format CSV tidak valid. Pastikan file adalah CSV yang benar.', details: parseErr instanceof Error ? parseErr.message : 'Parse error' },
-        { status: 400 }
-      );
+    const isXlsx = /\.(xlsx|xls)$/i.test(file.name);
+
+    if (isXlsx) {
+      try {
+        const buffer = await file.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+        const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+        records = data.map(row => row.map((cell: any) => String(cell ?? '')));
+      } catch (parseErr) {
+        return NextResponse.json(
+          { error: 'Format XLSX tidak valid. Pastikan file adalah Excel yang benar.', details: parseErr instanceof Error ? parseErr.message : 'Parse error' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // CSV - auto-detect delimiter (comma or semicolon)
+      const fileContent = await file.text();
+      const firstLine = fileContent.split('\n')[0] || '';
+      const commaCount = (firstLine.match(/,/g) || []).length;
+      const semicolonCount = (firstLine.match(/;/g) || []).length;
+      const delimiter = semicolonCount > commaCount ? ';' : ',';
+
+      try {
+        records = parse(fileContent, {
+          skip_empty_lines: true,
+          relax_column_count: true,
+          delimiter,
+        });
+      } catch (parseErr) {
+        return NextResponse.json(
+          { error: 'Format CSV tidak valid. Pastikan file adalah CSV yang benar.', details: parseErr instanceof Error ? parseErr.message : 'Parse error' },
+          { status: 400 }
+        );
+      }
     }
 
     if (records.length === 0) {
       return NextResponse.json(
-        { error: 'File CSV kosong.' },
+        { error: 'File kosong.' },
         { status: 400 }
       );
     }
