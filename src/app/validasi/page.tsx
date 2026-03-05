@@ -2,6 +2,21 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
+function parseItemDate(dateStr: string): number {
+  try {
+    let clean = dateStr;
+    if (clean.includes(', ')) clean = clean.split(', ')[1];
+    const [datePart, timePart = '00:00:00'] = clean.split(' ');
+    const [d, m, y] = datePart.split('/').map(Number);
+    const [h = 0, mn = 0, s = 0] = (timePart || '').split(':').map(Number);
+    return new Date(y, m - 1, d, h, mn, s).getTime();
+  } catch { return 0; }
+}
+
+function parseAmountNum(amount: string): number {
+  return parseInt((amount || '').replace(/[^0-9]/g, ''), 10) || 0;
+}
+
 export default function ValidasiPage() {
   // State untuk autentikasi
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -35,45 +50,95 @@ export default function ValidasiPage() {
 
   // State untuk filter
   const [filterOrgan, setFilterOrgan] = useState('');
-  const [filterDate, setFilterDate] = useState('');
+  const [filterDateStart, setFilterDateStart] = useState('');
+  const [filterDateEnd, setFilterDateEnd] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterKodeUnik, setFilterKodeUnik] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filtered data
+  // Sort state
+  const [sortField, setSortField] = useState('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 100;
+
+  // Filtered + sorted data
   const filteredList = useMemo(() => {
-    return dataList.filter((item) => {
-      // Filter by Organ
+    let list = dataList.filter((item) => {
       if (filterOrgan && item.organ !== filterOrgan) return false;
-
-      // Filter by Status
       if (filterStatus && item.status !== filterStatus) return false;
+      if (filterKodeUnik && String(item.validation?.kode_unik || '') !== filterKodeUnik) return false;
 
-      // Filter by Date (compare DD/MM/YYYY from formatted date)
-      if (filterDate) {
-        // filterDate is YYYY-MM-DD, convert to DD/MM/YYYY for comparison
-        const [y, m, d] = filterDate.split('-');
-        const targetDate = `${d}/${m}/${y}`;
-        if (!item.date.includes(targetDate)) return false;
+      if (filterDateStart) {
+        const [y, m, d] = filterDateStart.split('-').map(Number);
+        if (parseItemDate(item.date) < new Date(y, m - 1, d, 0, 0, 0).getTime()) return false;
+      }
+      if (filterDateEnd) {
+        const [y, m, d] = filterDateEnd.split('-').map(Number);
+        if (parseItemDate(item.date) > new Date(y, m - 1, d, 23, 59, 59).getTime()) return false;
       }
 
-      // Search by keterangan or nama_donatur
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        const matchKet = (item.keterangan || '').toLowerCase().includes(q);
-        const matchDonatur = (item.nama_donatur || '').toLowerCase().includes(q);
-        const matchFt = (item.ft_number || '').toLowerCase().includes(q);
-        if (!matchKet && !matchDonatur && !matchFt) return false;
+        if (
+          !(item.keterangan || '').toLowerCase().includes(q) &&
+          !(item.nama_donatur || '').toLowerCase().includes(q) &&
+          !(item.ft_number || '').toLowerCase().includes(q) &&
+          !(item.amount || '').toLowerCase().includes(q)
+        ) return false;
       }
 
       return true;
     });
-  }, [dataList, filterOrgan, filterDate, filterStatus, searchQuery]);
+
+    list.sort((a, b) => {
+      let va: number | string, vb: number | string;
+      if (sortField === 'date') { va = parseItemDate(a.date); vb = parseItemDate(b.date); }
+      else if (sortField === 'amount') { va = parseAmountNum(a.amount); vb = parseAmountNum(b.amount); }
+      else { va = (a[sortField] || '').toString().toLowerCase(); vb = (b[sortField] || '').toString().toLowerCase(); }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return list;
+  }, [dataList, filterOrgan, filterDateStart, filterDateEnd, filterStatus, filterKodeUnik, searchQuery, sortField, sortDir]);
 
   // Get unique organ values for filter dropdown
   const organOptions = useMemo(() => {
     const organs = new Set(dataList.map(item => item.organ).filter(Boolean));
     return Array.from(organs).sort();
   }, [dataList]);
+
+  // Get unique kode unik values for filter dropdown
+  const kodeUnikOptions = useMemo(() => {
+    const vals = new Set(dataList.map(item => String(item.validation?.kode_unik || '')).filter(v => v));
+    return Array.from(vals).sort((a, b) => Number(a) - Number(b));
+  }, [dataList]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / PAGE_SIZE));
+  const pagedList = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredList.slice(start, start + PAGE_SIZE);
+  }, [filteredList, currentPage, PAGE_SIZE]);
+
+  // Reset to page 1 when filters/sort change
+  useEffect(() => { setCurrentPage(1); }, [filterOrgan, filterDateStart, filterDateEnd, filterStatus, filterKodeUnik, searchQuery, sortField, sortDir]);
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: string }) => (
+    <span className="ml-1 opacity-60">{sortField === field ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}</span>
+  );
 
   // Cek autentikasi saat halaman dimuat
   useEffect(() => {
@@ -254,8 +319,8 @@ export default function ValidasiPage() {
   // Handler untuk REJECT
   const handleReject = async (item: any) => {
     const message = item.status === 'Tervalidasi'
-      ? 'Transaksi ini sudah divalidasi. Yakin ingin menolak? Data validasi akan dihapus.'
-      : 'Apakah Anda yakin ingin menolak transaksi ini? Transaksi yang ditolak tidak akan dihitung sebagai donasi.';
+      ? 'Transaksi ini sudah divalidasi. Yakin ingin menolak? Status akan berubah ke Ditolak, data prefill tetap tersimpan.'
+      : 'Apakah Anda yakin ingin menolak transaksi ini? Status akan berubah ke Ditolak, data prefill tetap tersimpan.';
 
     if (!window.confirm(message)) return;
 
@@ -404,7 +469,7 @@ export default function ValidasiPage() {
               <select
                 value={filterOrgan}
                 onChange={(e) => setFilterOrgan(e.target.value)}
-                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[160px]"
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[140px]"
               >
                 <option value="">Semua Organ</option>
                 {organOptions.map((org, i) => (
@@ -419,7 +484,7 @@ export default function ValidasiPage() {
               <select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[150px]"
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[140px]"
               >
                 <option value="">Semua Status</option>
                 <option value="Pending">🟡 Pending</option>
@@ -428,13 +493,39 @@ export default function ValidasiPage() {
               </select>
             </div>
 
-            {/* Filter Tanggal */}
+            {/* Filter Kode Unik */}
             <div className="flex-shrink-0">
-              <label className="text-xs font-bold text-gray-500 mb-1 block">Tanggal</label>
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Kode Unik</label>
+              <select
+                value={filterKodeUnik}
+                onChange={(e) => setFilterKodeUnik(e.target.value)}
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500 min-w-[120px]"
+              >
+                <option value="">Semua</option>
+                {kodeUnikOptions.map((k, i) => (
+                  <option key={i} value={k}>{k}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Tanggal Awal */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Dari Tanggal</label>
               <input
                 type="date"
-                value={filterDate}
-                onChange={(e) => setFilterDate(e.target.value)}
+                value={filterDateStart}
+                onChange={(e) => setFilterDateStart(e.target.value)}
+                className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* Filter Tanggal Akhir */}
+            <div className="flex-shrink-0">
+              <label className="text-xs font-bold text-gray-500 mb-1 block">Sampai Tanggal</label>
+              <input
+                type="date"
+                value={filterDateEnd}
+                onChange={(e) => setFilterDateEnd(e.target.value)}
                 className="p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500"
               />
             </div>
@@ -446,15 +537,15 @@ export default function ValidasiPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari nama donatur, keterangan, atau FT Number..."
+                placeholder="Cari donatur, keterangan, FT Number, atau nominal..."
                 className="w-full p-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500"
               />
             </div>
 
             {/* Reset Filter */}
-            {(filterOrgan || filterStatus || filterDate || searchQuery) && (
+            {(filterOrgan || filterStatus || filterKodeUnik || filterDateStart || filterDateEnd || searchQuery) && (
               <button
-                onClick={() => { setFilterOrgan(''); setFilterStatus(''); setFilterDate(''); setSearchQuery(''); }}
+                onClick={() => { setFilterOrgan(''); setFilterStatus(''); setFilterKodeUnik(''); setFilterDateStart(''); setFilterDateEnd(''); setSearchQuery(''); }}
                 className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
                 title="Reset semua filter"
               >
@@ -475,19 +566,19 @@ export default function ValidasiPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-gray-100 text-gray-700 border-b-2 border-gray-200">
-                  <th className="px-2 py-2.5 rounded-tl-lg">FT Number</th>
-                  <th className="px-2 py-2.5">Organ</th>
-                  <th className="px-2 py-2.5">Tanggal</th>
-                  <th className="px-2 py-2.5">Donatur</th>
-                  <th className="px-2 py-2.5">Keterangan</th>
-                  <th className="px-2 py-2.5">Nominal</th>
-                  <th className="px-2 py-2.5">Status</th>
+                <tr className="bg-gray-100 text-gray-700 border-b-2 border-gray-200 select-none">
+                  <th className="px-2 py-2.5 rounded-tl-lg cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('ft_number')}>FT Number<SortIcon field="ft_number" /></th>
+                  <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('organ')}>Organ<SortIcon field="organ" /></th>
+                  <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('date')}>Tanggal<SortIcon field="date" /></th>
+                  <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('nama_donatur')}>Donatur<SortIcon field="nama_donatur" /></th>
+                  <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('keterangan')}>Keterangan<SortIcon field="keterangan" /></th>
+                  <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('amount')}>Nominal<SortIcon field="amount" /></th>
+                  <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('status')}>Status<SortIcon field="status" /></th>
                   <th className="px-2 py-2.5 rounded-tr-lg text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="text-gray-800">
-                {filteredList.map((item, index) => (
+                {pagedList.map((item, index) => (
                   <tr key={index} className="border-b hover:bg-gray-50 transition-colors">
                     <td className="px-2 py-2 font-mono text-gray-500 whitespace-nowrap">{item.ft_number || '-'}</td>
                     <td className="px-2 py-2 whitespace-nowrap">{item.organ || '-'}</td>
@@ -536,6 +627,32 @@ export default function ValidasiPage() {
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+                <span>
+                  Menampilkan {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredList.length)} dari {filteredList.length} data
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ←
+                  </button>
+                  <span className="px-3 py-1 font-medium">{currentPage} / {totalPages}</span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

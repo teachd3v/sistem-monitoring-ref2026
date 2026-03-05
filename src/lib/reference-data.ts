@@ -13,8 +13,10 @@ export const JenisDonasiOptions = [
   'Wakaf',
   'Infak Alumni',
   'Infak Umum',
+  'Infak Karyawan',
   'Zakat Umum',
   'Zakat Alumni',
+  'Zakat Karyawan',
   'Infak Tematik'
 ];
 
@@ -71,7 +73,7 @@ export const DropdownOptions = {
   'Metode': MetodeOptions,
   'Organ': OrganOptions,
   'Campaign': CampaignList.map(c => c.nama_campaign),
-  'Pelaksana Program': Array.from(new Set(CampaignList.map(c => c.pelaksana_program))),
+  'Pelaksana Program': Array.from(new Set([...CampaignList.map(c => c.pelaksana_program), 'ALUMNI'])).sort(),
 };
 
 /**

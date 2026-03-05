@@ -17,16 +17,7 @@ export async function POST(request: NextRequest) {
 
     const updatePayload = undo
       ? { nama_validator: '' }
-      : {
-          nama_validator: REJECT_MARKER,
-          kode_unik: '',
-          campaign: '',
-          tipe_donatur: '',
-          jenis_donasi: '',
-          kategori: '',
-          pelaksana_program: '',
-          metode: '',
-        };
+      : { nama_validator: REJECT_MARKER };
 
     const { error: updateError } = await supabase
       .from('finance')
