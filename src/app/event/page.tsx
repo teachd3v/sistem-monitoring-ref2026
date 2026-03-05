@@ -30,6 +30,12 @@ export default function EventPage() {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
 
+    const invalidType = files.filter(f => !['image/jpeg', 'image/jpg'].includes(f.type));
+    if (invalidType.length > 0) {
+      setFileError(`Hanya file JPG/JPEG yang diterima. File tidak valid: ${invalidType.map(f => f.name).join(', ')}`);
+      e.target.value = '';
+      return;
+    }
     if (files.length > MAX_FILES) {
       setFileError(`Maksimal ${MAX_FILES} file. Kamu memilih ${files.length} file.`);
       e.target.value = '';
@@ -186,14 +192,14 @@ export default function EventPage() {
             <input
               id="dokumentasi"
               type="file"
-              accept="image/*,application/pdf"
+              accept=".jpg,.jpeg,image/jpeg"
               multiple
               onChange={handleFileChange}
               className="block w-full text-sm text-gray-500 cursor-pointer
                 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
             />
-            <p className="text-xs text-gray-500 mt-1">Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file. Gambar akan dikompres otomatis.</p>
+            <p className="text-xs text-gray-500 mt-1">Hanya file JPG/JPEG. Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file. Gambar akan dikompres otomatis.</p>
             {fileError && <p className="mt-1 text-xs text-red-600 font-medium">{fileError}</p>}
             {dokumentasi.length > 0 && !fileError && (
               <div className="mt-2 text-sm text-emerald-600">

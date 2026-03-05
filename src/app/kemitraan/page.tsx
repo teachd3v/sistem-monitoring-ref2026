@@ -49,7 +49,14 @@ export default function KemitraanPage() {
 
   const handleDokumentasiChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
-    const valid = validateFiles(Array.from(e.target.files), setDokError, e);
+    const files = Array.from(e.target.files);
+    const invalidType = files.filter(f => !['image/jpeg', 'image/jpg'].includes(f.type));
+    if (invalidType.length > 0) {
+      setDokError(`Hanya file JPG/JPEG yang diterima. File tidak valid: ${invalidType.map(f => f.name).join(', ')}`);
+      e.target.value = '';
+      return;
+    }
+    const valid = validateFiles(files, setDokError, e);
     if (valid) setDokumentasiKegiatan(valid);
   };
 
@@ -218,14 +225,14 @@ export default function KemitraanPage() {
             <input
               id="dokumentasi"
               type="file"
-              accept="image/*,application/pdf"
+              accept=".jpg,.jpeg,image/jpeg"
               multiple
               onChange={handleDokumentasiChange}
               className="block w-full text-sm text-gray-500 cursor-pointer
                 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
                 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
             />
-            <p className="text-xs text-gray-500 mt-1">Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file. Gambar akan dikompres otomatis.</p>
+            <p className="text-xs text-gray-500 mt-1">Hanya file JPG/JPEG. Maks. {MAX_FILES} file, maks. {MAX_FILE_SIZE_MB}MB per file. Gambar akan dikompres otomatis.</p>
             {dokError && <p className="mt-1 text-xs text-red-600 font-medium">{dokError}</p>}
             {dokumentasiKegiatan.length > 0 && !dokError && (
               <div className="mt-2 text-sm text-emerald-600">
