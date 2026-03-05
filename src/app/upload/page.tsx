@@ -42,6 +42,13 @@ export default function UploadPage() {
   const [organOptions, setOrganOptions] = useState<string[]>([]);
   const [selectedOrgan, setSelectedOrgan] = useState('');
 
+  // State untuk Generator FT Number
+  const [ftGenCount, setFtGenCount] = useState('');
+  const [ftGenLoading, setFtGenLoading] = useState(false);
+  const [ftGenResults, setFtGenResults] = useState<string[]>([]);
+  const [ftGenError, setFtGenError] = useState('');
+  const [ftGenCopied, setFtGenCopied] = useState(false);
+
   // State untuk preview CSV
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
   const [previewRows, setPreviewRows] = useState<string[][]>([]);
@@ -114,6 +121,41 @@ export default function UploadPage() {
     setIsAuthenticated(false);
     setLoginUsername('');
     setLoginPassword('');
+  };
+
+  const handleGenerateFt = async () => {
+    const count = parseInt(ftGenCount, 10);
+    if (!count || count < 1) return setFtGenError('Masukkan jumlah minimal 1.');
+    if (count > 500) return setFtGenError('Maksimal 500 FT Number sekaligus.');
+
+    setFtGenLoading(true);
+    setFtGenError('');
+    setFtGenResults([]);
+    setFtGenCopied(false);
+
+    try {
+      const res = await fetch('/api/generate-ft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setFtGenResults(data.ftNumbers || []);
+      } else {
+        setFtGenError(data.error || 'Gagal generate FT Number.');
+      }
+    } catch {
+      setFtGenError('Terjadi kesalahan. Coba lagi.');
+    }
+    setFtGenLoading(false);
+  };
+
+  const handleCopyFt = () => {
+    navigator.clipboard.writeText(ftGenResults.join('\n')).then(() => {
+      setFtGenCopied(true);
+      setTimeout(() => setFtGenCopied(false), 2000);
+    });
   };
 
   const parseCSVLine = (line: string): string[] => {
@@ -367,13 +409,98 @@ export default function UploadPage() {
           </div>
           <ul className="list-disc pl-5 space-y-1.5 text-gray-700">
             <li><strong>Date:</strong> Format lengkap dengan jam, menit, detik (contoh: <code className="bg-white px-1 py-0.5 rounded border border-gray-200 text-rose-600">2/20/2026 6:55:00 AM</code>).</li>
-            <li><strong>FT Number:</strong> Kunci unik (pasti ada di rekening koran). Jika berupa donasi <strong>Barang</strong> atau <strong>Tunai</strong>, akan dibuat otomatis jika keterangan tersebut ada di kolom description.</li>
+            <li><strong>FT Number:</strong> Kunci unik transaksi. Untuk bank yang sudah memiliki FT Number (contoh: BSI), isi dari rekening koran. Untuk bank tanpa FT Number (BCA Syariah, BJB, dll), gunakan <strong>Generator FT Number</strong> di bawah ini, atau kosongkan — sistem akan auto-generate kode 9 karakter saat upload.</li>
             <li><strong>Description:</strong> Akan dipecah menjadi <em>Keterangan</em> dan <em>Nama Donatur</em>, wajib dipisah dengan tanda strip (<code className="bg-white px-1 py-0.5 rounded border border-gray-200 text-rose-600">-</code>). <br/><span className="text-xs text-gray-500 mt-1 block">Contoh: <code className="bg-white px-1 py-0.5 rounded border border-gray-100 text-rose-600">TUNAI Keropak Jumat - Sekolah SMART Cibinong</code> atau <code className="bg-white px-1 py-0.5 rounded border border-gray-100 text-rose-600">BARANG 500 Mainan untuk RDP Sumatera - Sekolah SMART Cibinong</code></span></li>
             <li><strong>Currency:</strong> Format teks <code className="bg-white px-1 py-0.5 rounded border border-gray-200 text-rose-600">IDR</code>.</li>
             <li><strong>Amount:</strong> Format number 2 digit di belakang koma (isi cell harus angka), contoh <code className="bg-white px-1 py-0.5 rounded border border-gray-200 text-rose-600">259045</code> (layar menampilkan 259,045.00).</li>
             <li>Kolom <strong>DB</strong>, <strong>CR</strong>, dan <strong>Balance</strong> dapat dikosongkan.</li>
           </ul>
         </div>
+
+        {/* Generator FT Number */}
+        <details className="mb-6 bg-violet-50 border border-violet-200 rounded-xl overflow-hidden">
+          <summary className="px-4 py-3 cursor-pointer text-sm font-bold text-violet-800 hover:bg-violet-100 transition-colors flex items-center gap-2 list-none">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 flex-shrink-0">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0 1 12 15a9.065 9.065 0 0 1-6.23-.693L5 14.5m14.8.8 1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0 1 12 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+            </svg>
+            Generator FT Number — Untuk bank yang tidak memiliki FT Number
+          </summary>
+          <div className="px-4 pb-4 pt-3 text-left">
+            <p className="text-xs text-violet-600 mb-3">
+              Generate FT Number unik 9 karakter (A–Z, 0–9) untuk dipastekan ke kolom <strong>FT Number</strong> di file CSV sebelum upload.
+              Sistem otomatis mengecek keunikan ke database.
+            </p>
+            <div className="flex gap-2 items-end flex-wrap">
+              <div className="flex-1 min-w-[140px]">
+                <label className="text-xs font-bold text-violet-700 mb-1 block">Jumlah FT Number</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={ftGenCount}
+                  onChange={(e) => { setFtGenCount(e.target.value); setFtGenError(''); }}
+                  placeholder="Contoh: 57"
+                  className="w-full p-2.5 border border-violet-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-100 transition-all"
+                />
+              </div>
+              <button
+                onClick={handleGenerateFt}
+                disabled={ftGenLoading || !ftGenCount}
+                className="bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold px-4 py-2.5 rounded-lg text-sm transition-colors shadow-sm whitespace-nowrap"
+              >
+                {ftGenLoading ? 'Generating...' : 'Generate'}
+              </button>
+            </div>
+
+            {ftGenError && (
+              <p className="mt-2 text-xs text-red-600 font-medium">{ftGenError}</p>
+            )}
+
+            {ftGenResults.length > 0 && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-violet-700">{ftGenResults.length} FT Number berhasil di-generate:</p>
+                  <button
+                    onClick={handleCopyFt}
+                    className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors ${
+                      ftGenCopied
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-violet-100 hover:bg-violet-200 text-violet-700'
+                    }`}
+                  >
+                    {ftGenCopied ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                        </svg>
+                        Tersalin!
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3.5 h-3.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                        </svg>
+                        Copy Semua
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="bg-white border border-violet-200 rounded-lg p-3 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-1.5">
+                    {ftGenResults.map((ft, i) => (
+                      <span key={i} className="font-mono text-xs bg-violet-50 text-violet-800 px-2 py-1 rounded border border-violet-100 text-center tracking-wider">
+                        {ft}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-violet-500 mt-2">
+                  Paste ke kolom <strong>FT Number</strong> di file CSV (satu FT Number per baris), lalu upload file.
+                </p>
+              </div>
+            )}
+          </div>
+        </details>
 
         {/* PIC Organ Selector */}
         <div className="mb-4 text-left">
