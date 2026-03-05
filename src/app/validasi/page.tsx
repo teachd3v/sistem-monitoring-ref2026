@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { OrganOptions } from '@/lib/reference-data';
 
 function parseItemDate(dateStr: string): number {
   try {
@@ -744,7 +745,8 @@ export default function ValidasiPage() {
                   <label className="text-xs font-bold text-gray-600">Pelaksana Program</label>
                   <select name="pelaksana_program" value={formData.pelaksana_program} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
                     <option value="">-- Pilih --</option>
-                    {dropdowns['Pelaksana Program']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
+                    {/* Menggabungkan opsi OrganOptions dengan nilai prefill saat ini (jika tidak ada di OrganOptions) agar nilai auto-tagging tidak hilang */}
+                    {Array.from(new Set([...OrganOptions, formData.pelaksana_program].filter(Boolean))).map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
                   </select>
                 </div>
 

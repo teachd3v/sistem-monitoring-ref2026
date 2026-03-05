@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import imageCompression from 'browser-image-compression';
+import { OrganOptions } from '@/lib/reference-data';
 
 export default function KemitraanPage() {
   const [formData, setFormData] = useState({
@@ -21,7 +22,7 @@ export default function KemitraanPage() {
   const MAX_FILES = 5;
   const MAX_FILE_SIZE_MB = 10;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -244,15 +245,18 @@ export default function KemitraanPage() {
           {/* Pelaksana Event */}
           <div>
             <label className="text-sm font-bold text-gray-700 block mb-2">Pelaksana Event <span className="text-red-500">*</span></label>
-            <input
-              type="text"
+            <select
               name="pelaksana_event"
               value={formData.pelaksana_event}
               onChange={handleInputChange}
               required
               className="w-full p-3 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white outline-none focus:border-emerald-500"
-              placeholder="Contoh: Tim Kemitraan Jakarta"
-            />
+            >
+              <option value="" disabled>Pilih Pelaksana Event</option>
+              {OrganOptions.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           </div>
 
           {/* PIC Report */}
