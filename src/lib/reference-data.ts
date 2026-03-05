@@ -96,8 +96,6 @@ export function getJenisDonasi(campaignName: string): string {
   
   const infakTematikCampaigns = [
     'Sedekah Quran',
-    'Sedekah Subuh dan Sedekah 1 Miliar',
-    'Sedekah Jumat',
     'Sedekah Penghafal Al Quran',
     'Kelas Literasi Kreatif Ramadan',
     'Pulang Kampung SMART',
