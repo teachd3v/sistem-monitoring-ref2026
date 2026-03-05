@@ -493,6 +493,54 @@ export default function DashboardPage() {
           ) : (
             <div className="grid grid-cols-1 gap-6">
 
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Stat: Jumlah Event */}
+                <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100 flex items-center gap-4">
+                  <div className="text-4xl">🎪</div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">Jumlah Event Terlaksana</p>
+                    <p className="text-4xl font-bold text-emerald-700">{eventData.length}</p>
+                  </div>
+                </div>
+
+                {/* Stat: Jumlah Kemitraan */}
+                <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100 flex items-center gap-4">
+                  <div className="text-4xl">🤝</div>
+                  <div>
+                    <p className="text-sm text-gray-500 font-medium">Jumlah Kemitraan Terjalin</p>
+                    <p className="text-4xl font-bold text-purple-700">{kemitraanData.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart: Event per Pelaksana */}
+              <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Jumlah Event per Pelaksana</h3>
+                {eventData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart
+                      data={Object.entries(
+                        eventData.reduce((acc: Record<string, number>, item) => {
+                          const key = item.pelaksana_event || 'Tidak Diketahui';
+                          acc[key] = (acc[key] || 0) + 1;
+                          return acc;
+                        }, {})
+                      ).map(([pelaksana, jumlah]) => ({ pelaksana, jumlah }))}
+                      margin={{ top: 5, right: 20, left: 0, bottom: 60 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="pelaksana" tick={{ fontSize: 12 }} angle={-30} textAnchor="end" interval={0} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                      <Tooltip />
+                      <Bar dataKey="jumlah" name="Jumlah Event" fill="#10b981" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <p className="text-center text-gray-400 py-10">Belum ada data event</p>
+                )}
+              </div>
+
               {/* Table Event */}
               <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100">
                 <h3 className="text-lg font-bold text-gray-800 mb-4">🎪 Data Event Ramadan</h3>
