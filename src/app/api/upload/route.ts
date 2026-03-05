@@ -21,18 +21,132 @@ const hariDict: { [key: number]: string } = {
   6: 'Sabtu',
 };
 
+const INDONESIAN_MONTHS: Record<string, number> = {
+  'januari': 0, 'februari': 1, 'maret': 2, 'april': 3,
+  'mei': 4, 'juni': 5, 'juli': 6, 'agustus': 7,
+  'september': 8, 'oktober': 9, 'november': 10, 'desember': 11,
+};
+
+/**
+ * Parse a time string into [hours, minutes, seconds].
+ * Handles "HH:MM", "HH:MM:SS", and optional AM/PM suffix.
+ */
+function parseTimePart(t: string): [number, number, number] {
+  const isPM = /pm$/i.test(t.trim());
+  const isAM = /am$/i.test(t.trim());
+  const clean = t.replace(/\s*(am|pm)\s*$/i, '').trim();
+  const parts = clean.split(':').map(Number);
+  let h = parts[0] || 0;
+  const m = parts[1] || 0;
+  const s = parts[2] || 0;
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  return [h, m, s];
+}
+
+/**
+ * Split a datetime string into a date part and optional time part.
+ * e.g. "05/03/2026 6:55:00 AM" -> ["05/03/2026", "6:55:00 AM"]
+ */
+function splitDatetime(str: string): [string, string | null] {
+  const m = str.match(/^(.*?)\s+(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)$/);
+  if (m) return [m[1].trim(), m[2].trim()];
+  return [str.trim(), null];
+}
+
+/**
+ * Robust date parser that handles various formats:
+ * - DD/MM/YYYY, MM/DD/YYYY (auto-detected)
+ * - DD-MM-YYYY, YYYY-MM-DD
+ * - DD MMMM YYYY (English or Indonesian month names)
+ * - With time: HH:MM:SS or HH:MM:SS AM/PM
+ * - With day name prefix: "Kamis, ..." or "Thursday, ..."
+ */
+function parseDate(str: string): Date | null {
+  if (!str?.trim()) return null;
+  const s = str.trim();
+
+  // Strip day name prefix like "Kamis, " or "Thursday, "
+  const stripped = s.replace(/^[A-Za-z]+,?\s+/, '').trim();
+
+  const [datePart, timePart] = splitDatetime(stripped);
+  const [h, mn, sc] = timePart ? parseTimePart(timePart) : [0, 0, 0];
+
+  // Pattern: DD/MM/YYYY or MM/DD/YYYY
+  const slashMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const a = +slashMatch[1], b = +slashMatch[2], y = +slashMatch[3];
+    let day: number, month: number;
+    if (a > 12) {
+      // First part > 12 → must be day (DD/MM/YYYY)
+      day = a; month = b - 1;
+    } else if (b > 12) {
+      // Second part > 12 → must be day (MM/DD/YYYY)
+      day = b; month = a - 1;
+    } else {
+      // Ambiguous: try native JS first (handles MM/DD/YYYY like BSI exports)
+      const native = new Date(`${slashMatch[1]}/${slashMatch[2]}/${y} ${timePart || '00:00:00'}`);
+      if (!isNaN(native.getTime())) return native;
+      // Fallback: treat as DD/MM/YYYY
+      day = a; month = b - 1;
+    }
+    const dt = new Date(y, month, day, h, mn, sc);
+    if (!isNaN(dt.getTime()) && dt.getMonth() === month) return dt;
+  }
+
+  // Pattern: DD-MM-YYYY
+  const dashMatch = datePart.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashMatch) {
+    const a = +dashMatch[1], b = +dashMatch[2], y = +dashMatch[3];
+    let day: number, month: number;
+    if (a > 12) { day = a; month = b - 1; }
+    else if (b > 12) { day = b; month = a - 1; }
+    else { day = a; month = b - 1; } // assume DD-MM-YYYY
+    const dt = new Date(y, month, day, h, mn, sc);
+    if (!isNaN(dt.getTime()) && dt.getMonth() === month) return dt;
+  }
+
+  // Pattern: YYYY-MM-DD (ISO-like, avoid UTC offset issue)
+  const isoMatch = datePart.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const dt = new Date(+isoMatch[1], +isoMatch[2] - 1, +isoMatch[3], h, mn, sc);
+    if (!isNaN(dt.getTime())) return dt;
+  }
+
+  // Pattern: DD MMMM YYYY — Indonesian or English month name
+  const monthNameMatch = datePart.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+  if (monthNameMatch) {
+    const monthName = monthNameMatch[2].toLowerCase();
+    const idMonthIdx = INDONESIAN_MONTHS[monthName];
+    if (idMonthIdx !== undefined) {
+      const dt = new Date(+monthNameMatch[3], idMonthIdx, +monthNameMatch[1], h, mn, sc);
+      if (!isNaN(dt.getTime())) return dt;
+    }
+    // Try native for English month names (e.g. "25 February 2026")
+    const nativeEn = new Date(`${monthNameMatch[2]} ${monthNameMatch[1]}, ${monthNameMatch[3]} ${timePart || '00:00:00'}`);
+    if (!isNaN(nativeEn.getTime())) return nativeEn;
+  }
+
+  // Fallback: native JS parser (handles ISO 8601, RFC 2822, US M/D/YYYY etc.)
+  const fallback = new Date(stripped);
+  if (!isNaN(fallback.getTime())) return fallback;
+
+  const last = new Date(s);
+  if (!isNaN(last.getTime())) return last;
+
+  return null;
+}
+
 /**
  * Format date with Indonesian day name
- * Input: "2026-02-25T10:30:45" or similar
- * Output: "Senin, 25/02/2026 10:30:45"
+ * Accepts any parseable date string → "Senin, 25/02/2026 10:30:45"
  */
 function formatDateWithDay(dateStr: string): string {
   try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
+    const date = parseDate(dateStr);
+    if (!date) return dateStr;
 
     const dayName = hariDict[date.getDay()];
-
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
@@ -41,8 +155,8 @@ function formatDateWithDay(dateStr: string): string {
     const seconds = String(date.getSeconds()).padStart(2, '0');
 
     return `${dayName}, ${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-  } catch (error) {
-    return dateStr; // Return original if parsing fails
+  } catch {
+    return dateStr;
   }
 }
 
@@ -72,15 +186,15 @@ function extractDescAndDonor(description: string): { keterangan: string; namaDon
  */
 function extractDateForFT(dateStr: string): string | null {
   try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return null;
+    const date = parseDate(dateStr);
+    if (!date) return null;
 
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
 
     return `${day}/${month}/${year}`;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -255,9 +369,9 @@ export async function POST(request: NextRequest) {
         rowErrors.push({ row: rowNum, ftNumber, message: 'Kolom Date kosong' });
         continue;
       }
-      const parsedDate = new Date(dateValue);
-      if (isNaN(parsedDate.getTime())) {
-        rowErrors.push({ row: rowNum, ftNumber, message: `Format Date tidak valid: "${dateValue}". Gunakan format seperti: 2/20/2026 6:55:00 AM` });
+      const parsedDate = parseDate(dateValue);
+      if (!parsedDate) {
+        rowErrors.push({ row: rowNum, ftNumber, message: `Format Date tidak dikenali: "${dateValue}". Contoh format yang didukung: 05/03/2026, 2026-03-05, 5 Maret 2026, 2/20/2026 6:55:00 AM` });
         continue;
       }
 
