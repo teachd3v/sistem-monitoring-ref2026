@@ -31,7 +31,6 @@ export const OrganOptions = [
   'SSC',
   'SMART',
   'PIASYU',
-  'ALSYUKRO',
   'IK'
 ];
 
@@ -44,7 +43,7 @@ export interface Campaign {
 
 export const CampaignList: Campaign[] = [
   ...[
-    'HOLDING', 'eTAHFIDZ', 'IMZ', 'KBUU', 'TEACH', 'STIM BB', 'SSC', 'SMART', 'PIASYU', 'ALSYUKRO', 'IK'
+    'HOLDING', 'eTAHFIDZ', 'IMZ', 'KBUU', 'TEACH', 'STIM BB', 'SSC', 'SMART', 'PIASYU', 'IK'
   ].flatMap(organ => [
     { nama_campaign: `Zakat ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Zakat Umum' },
     { nama_campaign: `Infak ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Infak Tematik' },
