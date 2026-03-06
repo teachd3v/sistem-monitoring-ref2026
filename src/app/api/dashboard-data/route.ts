@@ -119,14 +119,23 @@ export async function GET(request: NextRequest) {
     let countPending = 0;
     let countDitolak = 0;
 
+    const organTervalidasi: Record<string, number> = {};
+    const organPending: Record<string, number> = {};
+    const organDitolak: Record<string, number> = {};
+
     financeValues.forEach((row) => {
       const validator = row.nama_validator ? row.nama_validator.trim() : '';
+      const organ = row.organ || 'Tidak Diketahui';
+      
       if (validator === REJECT_MARKER) {
         countDitolak++;
+        organDitolak[organ] = (organDitolak[organ] || 0) + 1;
       } else if (validator !== '') {
         countTervalidasi++;
+        organTervalidasi[organ] = (organTervalidasi[organ] || 0) + 1;
       } else {
         countPending++;
+        organPending[organ] = (organPending[organ] || 0) + 1;
       }
     });
 
@@ -254,6 +263,9 @@ export async function GET(request: NextRequest) {
         tervalidasi: countTervalidasi,
         pending: countPending,
         ditolak: countDitolak,
+        organTervalidasi,
+        organPending,
+        organDitolak,
       },
       weeklyData,
       campaignData,

@@ -357,26 +357,69 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* Status Breakdown Cards */}
         {statusBreakdown && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-green-500">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Tervalidasi</div>
-              <div className="text-2xl font-bold text-green-600 mt-1">
-                {statusBreakdown.tervalidasi?.toLocaleString('id-ID') || 0}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-green-500 flex flex-col h-full">
+              <div>
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Tervalidasi</div>
+                <div className="text-2xl font-bold text-green-600 mt-1">
+                  {statusBreakdown.tervalidasi?.toLocaleString('id-ID') || 0}
+                </div>
               </div>
+              {statusBreakdown.organTervalidasi && Object.keys(statusBreakdown.organTervalidasi).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 space-y-1">
+                  {Object.entries(statusBreakdown.organTervalidasi)
+                    .sort(([, a], [, b]) => Number(b) - Number(a))
+                    .map(([org, count]) => (
+                      <div key={org} className="flex justify-between items-center">
+                        <span className="truncate pr-2">{org}</span>
+                        <span className="font-semibold bg-green-50 text-green-700 px-1.5 py-0.5 rounded min-w-[24px] text-center">{Number(count)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
-            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-yellow-500">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Pending</div>
-              <div className="text-2xl font-bold text-yellow-600 mt-1">
-                {statusBreakdown.pending?.toLocaleString('id-ID') || 0}
+            
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-yellow-500 flex flex-col h-full">
+              <div>
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Pending</div>
+                <div className="text-2xl font-bold text-yellow-600 mt-1">
+                  {statusBreakdown.pending?.toLocaleString('id-ID') || 0}
+                </div>
               </div>
+              {statusBreakdown.organPending && Object.keys(statusBreakdown.organPending).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 space-y-1">
+                  {Object.entries(statusBreakdown.organPending)
+                    .sort(([, a], [, b]) => Number(b) - Number(a))
+                    .map(([org, count]) => (
+                      <div key={org} className="flex justify-between items-center">
+                        <span className="truncate pr-2">{org}</span>
+                        <span className="font-semibold bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded min-w-[24px] text-center">{Number(count)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
-            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-red-500">
-              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Ditolak</div>
-              <div className="text-2xl font-bold text-red-600 mt-1">
-                {statusBreakdown.ditolak?.toLocaleString('id-ID') || 0}
+
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-red-500 flex flex-col h-full">
+              <div>
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Ditolak</div>
+                <div className="text-2xl font-bold text-red-600 mt-1">
+                  {statusBreakdown.ditolak?.toLocaleString('id-ID') || 0}
+                </div>
               </div>
+              {statusBreakdown.organDitolak && Object.keys(statusBreakdown.organDitolak).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 space-y-1">
+                  {Object.entries(statusBreakdown.organDitolak)
+                    .sort(([, a], [, b]) => Number(b) - Number(a))
+                    .map(([org, count]) => (
+                      <div key={org} className="flex justify-between items-center">
+                        <span className="truncate pr-2">{org}</span>
+                        <span className="font-semibold bg-red-50 text-red-700 px-1.5 py-0.5 rounded min-w-[24px] text-center">{Number(count)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
           </div>
         )}

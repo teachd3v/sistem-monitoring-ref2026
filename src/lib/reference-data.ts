@@ -17,7 +17,8 @@ export const JenisDonasiOptions = [
   'Zakat Umum',
   'Zakat Alumni',
   'Zakat Karyawan',
-  'Infak Tematik'
+  'Infak Tematik',
+  'Zakat Fitrah'
 ];
 
 export const OrganOptions = [
@@ -38,30 +39,41 @@ export interface Campaign {
   nama_campaign: string;
   kode_unik: string | null;
   pelaksana_program: string;
+  jenis_donasi: string;
 }
 
 export const CampaignList: Campaign[] = [
-  { nama_campaign: 'Sedekah Penghafal Al Quran', kode_unik: null, pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Kelas Literasi Kreatif Ramadan', kode_unik: '53', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Pulang Kampung SMART', kode_unik: '02', pelaksana_program: 'SMART' },
-  { nama_campaign: 'Pelukan Ramadan untuk Guru Daerah', kode_unik: '10', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Berbagi Yatim dan Dhuafa', kode_unik: '06', pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Sedekah Quran', kode_unik: '25', pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Sedekah Subuh dan Sedekah 1 Miliar', kode_unik: '24', pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Sedekah Jumat', kode_unik: '48', pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Teman Tumbuh Beasiswa Etos dan BAKTINUSA', kode_unik: '73', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Ramadan Ini Jangan Biarkan Harapan Mereka Ikut Tenggelam', kode_unik: null, pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Cuci AC & Bebersih 100 Masjid', kode_unik: null, pelaksana_program: 'IK' },
-  { nama_campaign: 'Sedekah Buka Puasa Daerah Bencana', kode_unik: '44', pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Infak Alumni TEACH', kode_unik: '56', pelaksana_program: 'Alumni TEACH' },
-  { nama_campaign: 'Berbagi THR Untuk Pelestari Budaya Silat', kode_unik: null, pelaksana_program: 'Alumni TEACH' },
-  { nama_campaign: 'Zakat Alumni Beasiswa Etos dan BAKTINUSA', kode_unik: '55', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Sedekah Ramadan', kode_unik: null, pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Zakat Ramadan', kode_unik: null, pelaksana_program: 'HOLDING' },
-  { nama_campaign: 'Sedekah Project BA Jakarta', kode_unik: '64', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Sedekah Project BA Surabaya', kode_unik: '65', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Sedekah Project BA Palembang', kode_unik: '66', pelaksana_program: 'TEACH' },
-  { nama_campaign: 'Sedekah Project BA Padang', kode_unik: '67', pelaksana_program: 'TEACH' }
+  ...[
+    'HOLDING', 'eTAHFIDZ', 'IMZ', 'KBUU', 'TEACH', 'STIM BB', 'SSC', 'SMART', 'PIASYU', 'ALSYUKRO', 'IK'
+  ].flatMap(organ => [
+    { nama_campaign: `Zakat ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Zakat Umum' },
+    { nama_campaign: `Infak ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Infak Tematik' },
+    { nama_campaign: `Wakaf ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Wakaf' },
+    { nama_campaign: `${organ} Berbagi`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Infak Tematik' }
+  ]),
+  // Overrides and specifics
+  { nama_campaign: 'Sedekah Penghafal Al Quran', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Kelas Literasi Kreatif Ramadan', kode_unik: '53', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Pulang Kampung SMART', kode_unik: '02', pelaksana_program: 'SMART', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Pelukan Ramadan untuk Guru Daerah', kode_unik: '10', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Berbagi Yatim dan Dhuafa', kode_unik: '06', pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Quran', kode_unik: '25', pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Subuh dan Sedekah 1 Miliar', kode_unik: '24', pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Umum' },
+  { nama_campaign: 'Sedekah Jumat', kode_unik: '48', pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Umum' },
+  { nama_campaign: 'Teman Tumbuh Beasiswa Etos dan BAKTINUSA', kode_unik: '73', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Alumni' },
+  { nama_campaign: 'Ramadan Ini Jangan Biarkan Harapan Mereka Ikut Tenggelam', kode_unik: null, pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Cuci AC & Bebersih 100 Masjid', kode_unik: null, pelaksana_program: 'IK', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Buka Puasa Daerah Bencana', kode_unik: '44', pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Infak Alumni TEACH', kode_unik: '56', pelaksana_program: 'Alumni TEACH', jenis_donasi: 'Infak Alumni' },
+  { nama_campaign: 'Berbagi THR Untuk Pelestari Budaya Silat', kode_unik: null, pelaksana_program: 'Alumni TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Zakat Alumni Beasiswa Etos dan BAKTINUSA', kode_unik: '55', pelaksana_program: 'TEACH', jenis_donasi: 'Zakat Alumni' },
+  { nama_campaign: 'Sedekah Ramadan', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Umum' },
+  { nama_campaign: 'Zakat Ramadan', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Zakat Umum' }, // override Zakat HOLDING
+  { nama_campaign: 'Zakat Fitrah', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Zakat Fitrah' },
+  { nama_campaign: 'Sedekah Project BA Jakarta', kode_unik: '64', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Project BA Surabaya', kode_unik: '65', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Project BA Palembang', kode_unik: '66', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Project BA Padang', kode_unik: '67', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
 ];
 
 // Combine to general dropdown structure for API compatibility if needed
@@ -81,52 +93,10 @@ export const DropdownOptions = {
  */
 export function getJenisDonasi(campaignName: string): string {
   if (!campaignName) return '';
-
   const name = campaignName.trim();
   
-  if (name === 'Teman Tumbuh Beasiswa Etos dan BAKTINUSA' || name === 'Infak Alumni TEACH') {
-    return 'Infak Alumni';
-  }
-  
-  if (name === 'Zakat Alumni Beasiswa Etos dan BAKTINUSA') {
-    return 'Zakat Alumni';
-  }
-  
-  if (name === 'Zakat Ramadan') {
-    return 'Zakat Umum';
-  }
-  
-  const infakTematikCampaigns = [
-    'Sedekah Quran',
-    'Sedekah Penghafal Al Quran',
-    'Kelas Literasi Kreatif Ramadan',
-    'Pulang Kampung SMART',
-    'Berbagi Yatim dan Dhuafa',
-    'Ramadan Ini Jangan Biarkan Harapan Mereka Ikut Tenggelam',
-    'Cuci AC & Bebersih 100 Masjid',
-    'Sedekah Buka Puasa Daerah Bencana',
-    'Berbagi THR Untuk Pelestari Budaya Silat',
-    'Sedekah Project BA Jakarta',
-    'Sedekah Project BA Surabaya',
-    'Sedekah Project BA Palembang',
-    'Sedekah Project BA Padang'
-  ];
-  
-  if (infakTematikCampaigns.includes(name)) {
-    return 'Infak Tematik';
-  }
-  
-  const infakUmumCampaigns = [
-    'Sedekah Subuh dan Sedekah 1 Miliar',
-    'Sedekah Jumat',
-    'Sedekah Ramadan'
-  ];
-
-  if (infakUmumCampaigns.includes(name)) {
-    return 'Infak Umum';
-  }
-
-  return ''; // Default or empty if not matched
+  const matchedCampaign = CampaignList.find(c => c.nama_campaign === name);
+  return matchedCampaign ? matchedCampaign.jenis_donasi : '';
 }
 
 /**

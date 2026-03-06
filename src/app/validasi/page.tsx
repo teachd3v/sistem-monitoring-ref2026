@@ -39,7 +39,7 @@ export default function ValidasiPage() {
   const [formData, setFormData] = useState({
     nama_validator: '', kode_unik: '', campaign: '',
     tipe_donatur: '', jenis_donasi: '', kategori: '',
-    pelaksana_program: '', metode: ''
+    pelaksana_program: '', metode: '', catatan: ''
   });
 
   // State untuk Modal Edit
@@ -228,7 +228,8 @@ export default function ValidasiPage() {
         jenis_donasi: item.validation.jenis_donasi || '',
         kategori: item.validation.kategori || '',
         pelaksana_program: item.validation.pelaksana_program || '',
-        metode: item.validation.metode || ''
+        metode: item.validation.metode || '',
+        catatan: item.validation.catatan || ''
       });
     } else {
       // Untuk data Pending/Ditolak: kosongkan field validator,
@@ -241,7 +242,8 @@ export default function ValidasiPage() {
         jenis_donasi: (item.validation?.jenis_donasi || '').trim(),
         kategori: (item.validation?.kategori || '').trim(),
         pelaksana_program: (item.validation?.pelaksana_program || '').trim(),
-        metode: (item.validation?.metode || '').trim()
+        metode: (item.validation?.metode || '').trim(),
+        catatan: (item.validation?.catatan || '').trim()
       });
     }
 
@@ -697,7 +699,7 @@ export default function ValidasiPage() {
                 {/* Baris 1: 5 item */}
                 <div>
                   <label className="text-xs font-bold text-gray-600">Nama Validator</label>
-                  <select name="nama_validator" value={formData.nama_validator} onChange={handleInputChange} required className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
+                  <select name="nama_validator" value={formData.nama_validator} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
                     <option value="">-- Pilih --</option>
                     {dropdowns['Nama Validator']?.map((opt:string, i:number) => <option key={i} value={opt}>{opt}</option>)}
                   </select>
@@ -732,7 +734,7 @@ export default function ValidasiPage() {
                   </select>
                 </div>
 
-                {/* Baris 2: 4 item + tombol */}
+                {/* Baris 2 */}
                 <div>
                   <label className="text-xs font-bold text-gray-600">Kategori</label>
                   <select name="kategori" value={formData.kategori} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500">
@@ -758,11 +760,16 @@ export default function ValidasiPage() {
                   </select>
                 </div>
 
-                <div style={{ gridColumn: 'span 2' }} className="flex items-end">
-                  <button type="submit" className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-1.5 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
-                    Simpan Data
-                  </button>
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="text-xs font-bold text-gray-600">Catatan</label>
+                  <input type="text" name="catatan" value={formData.catatan} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500" placeholder="Catatan tambahan (opsional)..." />
                 </div>
+              </div>
+              
+              <div className="flex justify-end mt-4">
+                <button type="submit" className="px-6 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-2.5 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
+                  Simpan Data
+                </button>
               </div>
 
               {submitStatus && <p className="text-center text-sm font-medium mt-1 text-emerald-600">{submitStatus}</p>}

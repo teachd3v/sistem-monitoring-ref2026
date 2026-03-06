@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
       kategori,
       pelaksana_program,
       metode,
+      catatan,
     } = data;
 
     // Use id from the payload: the frontend sends 'row_index' but we pass 'id' or we can check both
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
         kategori: kategori || '',
         pelaksana_program: pelaksana_program || '',
         metode: metode || '',
+        catatan: catatan || '',
       })
       .eq('id', recordId);
 

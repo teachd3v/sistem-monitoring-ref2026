@@ -399,7 +399,7 @@ export async function POST(request: NextRequest) {
 
       // Auto-tagging berdasarkan rules baru di reference-data.ts
       let autoCampaign = '';
-      let autoPelaksanaProgram = '';
+      let autoPelaksanaProgram = organ || ''; // Default to the selected organ
       let autoKodeUnik: number | null = null;
       const autoKategori = getKategori(cleanRow[descriptionIndex] || '');
       const autoMetode = getMetode(cleanRow[descriptionIndex] || '');
@@ -411,7 +411,26 @@ export async function POST(request: NextRequest) {
       
       // Jika tidak ada kode unik / tidak cocok, jalankan logic fallback
       if (!matchedCampaign) {
-        matchedCampaign = resolveFallbackCampaign(dateValue, cleanRow[descriptionIndex] || '');
+        const descLower = (cleanRow[descriptionIndex] || '').toLowerCase();
+        
+        // --- PRIORITAS 2: ORGAN-BASED OVERRIDE (Jika bukan HOLDING) ---
+        if (organ && organ !== 'HOLDING') {
+          // Cari apakah deskripsi mengandung keyword spesifik organ
+          if (descLower.includes('zakat')) {
+            matchedCampaign = { nama_campaign: `Zakat ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Zakat Umum' };
+          } else if (descLower.includes('wakaf')) {
+            matchedCampaign = { nama_campaign: `Wakaf ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Wakaf' };
+          } else if (descLower.includes('infak') || descLower.includes('sedekah')) {
+            matchedCampaign = { nama_campaign: `Infak ${organ}`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Infak Tematik' };
+          } else {
+            matchedCampaign = { nama_campaign: `${organ} Berbagi`, kode_unik: null, pelaksana_program: organ, jenis_donasi: 'Infak Tematik' }; // Default Organ
+          }
+        } 
+        
+        // --- PRIORITAS 3: FALLBACK GLOBAL (Waktu/Teks Zakat Umum/Sedekah Ramadan) ---
+        if (!matchedCampaign) {
+          matchedCampaign = resolveFallbackCampaign(dateValue, cleanRow[descriptionIndex] || '');
+        }
       }
 
       if (matchedCampaign) {
@@ -419,8 +438,10 @@ export async function POST(request: NextRequest) {
         autoPelaksanaProgram = matchedCampaign.pelaksana_program;
         autoKodeUnik = matchedCampaign.kode_unik ? parseInt(matchedCampaign.kode_unik, 10) : null;
         
-        // Jenis donasi berdasarkan campaign name logic
-        autoJenisDonasi = getJenisDonasi(autoCampaign);
+        // Jika sudah ada jenis_donasi di object (dari fallback organ baru atau dari list), gunakan itu
+        // Jika tidak, jalankan getJenisDonasi(autoCampaign)
+        autoJenisDonasi = (matchedCampaign as any).jenis_donasi 
+                       || getJenisDonasi(autoCampaign);
       }
 
       processedData.push({

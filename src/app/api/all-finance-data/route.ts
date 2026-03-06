@@ -76,6 +76,7 @@ export async function GET() {
           kategori: row.kategori || '',
           pelaksana_program: row.pelaksana_program || '',
           metode: row.metode || '',
+          catatan: row.catatan || '',
         },
       };
     });
