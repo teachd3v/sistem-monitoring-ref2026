@@ -491,6 +491,7 @@ export default function ValidasiPage() {
               >
                 <option value="">Semua Status</option>
                 <option value="Pending">🟡 Pending</option>
+                <option value="Review">🔵 Review</option>
                 <option value="Tervalidasi">🟢 Tervalidasi</option>
                 <option value="Ditolak">🔴 Ditolak</option>
               </select>
@@ -592,6 +593,8 @@ export default function ValidasiPage() {
                     <td className="px-2 py-2 whitespace-nowrap">
                       {item.status === 'Ditolak' ? (
                         <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-bold">Ditolak</span>
+                      ) : item.status === 'Review' ? (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">Review</span>
                       ) : item.status === 'Tervalidasi' ? (
                         <span className="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-xs font-bold">Tervalidasi</span>
                       ) : (

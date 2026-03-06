@@ -48,9 +48,13 @@ export async function GET() {
 
     const allData = financeValues.map((row) => {
       const validator = row.nama_validator ? row.nama_validator.trim() : '';
+      const catatan = row.catatan ? row.catatan.trim() : '';
       let status: string;
+      
       if (validator === REJECT_MARKER) {
         status = 'Ditolak';
+      } else if (catatan !== '') {
+        status = 'Review';
       } else if (validator !== '') {
         status = 'Tervalidasi';
       } else {

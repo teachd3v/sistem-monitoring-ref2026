@@ -323,33 +323,47 @@ export default function DashboardPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
 
           {/* Card 1: Total Donasi */}
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-6 rounded-xl shadow-lg text-white">
-            <div className="text-sm font-medium opacity-90">Total Jumlah Donasi</div>
-            <div className="text-3xl font-bold mt-2">{formatRupiah(summary.totalDonasi)}</div>
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-xl shadow-lg text-white flex flex-col justify-center">
+            <div className="text-xs font-medium opacity-90 mb-1">Total Donasi</div>
+            <div className="text-lg md:text-xl font-bold truncate" title={formatRupiah(summary.totalDonasi)}>{formatRupiah(summary.totalDonasi)}</div>
           </div>
 
-          {/* Card 2: Total Donatur */}
-          <div className="bg-gradient-to-br from-teal-500 to-teal-600 p-6 rounded-xl shadow-lg text-white">
-            <div className="text-sm font-medium opacity-90">Total Jumlah Donatur</div>
-            <div className="text-3xl font-bold mt-2">{summary.totalDonatur.toLocaleString('id-ID')}</div>
+          {/* Card 2: Total Donasi Uang */}
+          <div className="bg-gradient-to-br from-teal-500 to-teal-600 p-4 rounded-xl shadow-lg text-white flex flex-col justify-center">
+            <div className="text-xs font-medium opacity-90 mb-1">Total Donasi Uang</div>
+            <div className="text-lg md:text-xl font-bold truncate" title={formatRupiah(summary.totalDonasiUang)}>{formatRupiah(summary.totalDonasiUang)}</div>
           </div>
 
-          {/* Card 3: Total Transaksi */}
-          <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-6 rounded-xl shadow-lg text-white">
-            <div className="text-sm font-medium opacity-90">Total Jumlah Transaksi</div>
-            <div className="text-3xl font-bold mt-2">{summary.totalTransaksi.toLocaleString('id-ID')}</div>
+          {/* Card 3: Total Donasi Barang */}
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-4 rounded-xl shadow-lg text-white flex flex-col justify-center">
+            <div className="text-xs font-medium opacity-90 mb-1">Total Donasi Barang</div>
+            <div className="text-lg md:text-xl font-bold truncate" title={formatRupiah(summary.totalDonasiBarang)}>{formatRupiah(summary.totalDonasiBarang)}</div>
           </div>
 
-          {/* Card 4: Progress Capaian */}
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-6 rounded-xl shadow-lg text-white">
-            <div className="text-sm font-medium opacity-90">Progress Capaian</div>
-            <div className="text-3xl font-bold mt-2">{summary.progressPercent}%</div>
-            <div className="mt-2 bg-white bg-opacity-30 rounded-full h-2">
+          {/* Card 4: Total Donatur */}
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-4 rounded-xl shadow-lg text-white flex flex-col justify-center">
+            <div className="text-xs font-medium opacity-90 mb-1">Total Donatur</div>
+            <div className="text-lg md:text-xl font-bold truncate">{summary.totalDonatur.toLocaleString('id-ID')}</div>
+          </div>
+
+          {/* Card 5: Total Transaksi */}
+          <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-4 rounded-xl shadow-lg text-white flex flex-col justify-center">
+            <div className="text-xs font-medium opacity-90 mb-1">Total Transaksi</div>
+            <div className="text-lg md:text-xl font-bold truncate">{summary.totalTransaksi.toLocaleString('id-ID')}</div>
+          </div>
+
+          {/* Card 6: Progress Capaian */}
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-4 rounded-xl shadow-lg text-white flex flex-col justify-center">
+            <div className="text-xs font-medium opacity-90 mb-1">Progress Capaian</div>
+            <div className="flex items-end gap-2">
+              <div className="text-lg md:text-xl font-bold">{summary.progressPercent}%</div>
+            </div>
+            <div className="mt-2 bg-white bg-opacity-30 rounded-full h-1.5 w-full">
               <div
-                className="bg-white rounded-full h-2 transition-all"
+                className="bg-white rounded-full h-1.5 transition-all"
                 style={{ width: `${Math.min(summary.progressPercent, 100)}%` }}
               />
             </div>
@@ -358,7 +372,7 @@ export default function DashboardPage() {
         </div>
 
         {statusBreakdown && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 items-start">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 items-start">
             <div className="bg-white p-5 rounded-xl shadow border-l-4 border-green-500 flex flex-col h-full">
               <div>
                 <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Tervalidasi</div>
@@ -374,6 +388,27 @@ export default function DashboardPage() {
                       <div key={org} className="flex justify-between items-center">
                         <span className="truncate pr-2">{org}</span>
                         <span className="font-semibold bg-green-50 text-green-700 px-1.5 py-0.5 rounded min-w-[24px] text-center">{Number(count)}</span>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white p-5 rounded-xl shadow border-l-4 border-blue-500 flex flex-col h-full">
+              <div>
+                <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">Data Review</div>
+                <div className="text-2xl font-bold text-blue-600 mt-1">
+                  {statusBreakdown.review?.toLocaleString('id-ID') || 0}
+                </div>
+              </div>
+              {statusBreakdown.organReview && Object.keys(statusBreakdown.organReview).length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-600 space-y-1">
+                  {Object.entries(statusBreakdown.organReview)
+                    .sort(([, a], [, b]) => Number(b) - Number(a))
+                    .map(([org, count]) => (
+                      <div key={org} className="flex justify-between items-center">
+                        <span className="truncate pr-2">{org}</span>
+                        <span className="font-semibold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded min-w-[24px] text-center">{Number(count)}</span>
                       </div>
                     ))}
                 </div>

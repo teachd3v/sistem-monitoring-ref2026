@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
 
     if (!financeValues || financeValues.length === 0) {
       return NextResponse.json({
-        summary: { totalDonasi: 0, totalDonatur: 0, totalTransaksi: 0, progressPercent: 0, totalTarget: TOTAL_TARGET },
-        statusBreakdown: { total: 0, tervalidasi: 0, pending: 0, ditolak: 0 },
+        summary: { totalDonasi: 0, totalDonasiUang: 0, totalDonasiBarang: 0, totalDonatur: 0, totalTransaksi: 0, progressPercent: 0, totalTarget: TOTAL_TARGET },
+        statusBreakdown: { total: 0, tervalidasi: 0, pending: 0, ditolak: 0, review: 0 },
         weeklyData: [],
         campaignData: [],
         organData: [],
@@ -118,18 +118,24 @@ export async function GET(request: NextRequest) {
     let countTervalidasi = 0;
     let countPending = 0;
     let countDitolak = 0;
+    let countReview = 0;
 
     const organTervalidasi: Record<string, number> = {};
     const organPending: Record<string, number> = {};
     const organDitolak: Record<string, number> = {};
+    const organReview: Record<string, number> = {};
 
     financeValues.forEach((row) => {
       const validator = row.nama_validator ? row.nama_validator.trim() : '';
+      const catatan = row.catatan ? row.catatan.trim() : '';
       const organ = row.organ || 'Tidak Diketahui';
       
       if (validator === REJECT_MARKER) {
         countDitolak++;
         organDitolak[organ] = (organDitolak[organ] || 0) + 1;
+      } else if (catatan !== '') {
+        countReview++;
+        organReview[organ] = (organReview[organ] || 0) + 1;
       } else if (validator !== '') {
         countTervalidasi++;
         organTervalidasi[organ] = (organTervalidasi[organ] || 0) + 1;
@@ -143,9 +149,11 @@ export async function GET(request: NextRequest) {
     const validatedData: any[] = [];
 
     financeValues.forEach((row) => {
-      // Skip if not validated or rejected
-      if (!row.nama_validator || row.nama_validator.trim() === '') return;
-      if (row.nama_validator.trim() === REJECT_MARKER) return;
+      const validator = row.nama_validator ? row.nama_validator.trim() : '';
+      const catatan = row.catatan ? row.catatan.trim() : '';
+
+      // Skip if not strictly 'Tervalidasi'
+      if (validator === '' || validator === REJECT_MARKER || catatan !== '') return;
       if (!row.date || row.date.trim() === '') return;
 
       const dateObj = parseFormattedDate(row.date);
@@ -159,6 +167,7 @@ export async function GET(request: NextRequest) {
         amount: parseAmount(row.amount),
         amountStr: row.amount || '',
         campaign: row.campaign || '',
+        kategori: row.kategori || '',
         organ: row.pelaksana_program || '',
       };
 
@@ -181,6 +190,9 @@ export async function GET(request: NextRequest) {
 
     // Calculate summary
     const totalDonasi = validatedData.reduce((sum, item) => sum + item.amount, 0);
+    const totalDonasiUang = validatedData.filter(item => item.kategori === 'Uang' || !item.kategori.toLowerCase().includes('barang')).reduce((sum, item) => sum + item.amount, 0);
+    const totalDonasiBarang = validatedData.filter(item => item.kategori.toLowerCase().includes('barang')).reduce((sum, item) => sum + item.amount, 0);
+
     const uniqueDonors = new Set(validatedData.map(item => item.nama_donatur).filter(Boolean));
     const totalDonatur = uniqueDonors.size;
     const totalTransaksi = validatedData.length;
@@ -253,6 +265,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       summary: {
         totalDonasi,
+        totalDonasiUang,
+        totalDonasiBarang,
         totalDonatur,
         totalTransaksi,
         progressPercent,
@@ -263,9 +277,11 @@ export async function GET(request: NextRequest) {
         tervalidasi: countTervalidasi,
         pending: countPending,
         ditolak: countDitolak,
+        review: countReview,
         organTervalidasi,
         organPending,
         organDitolak,
+        organReview,
       },
       weeklyData,
       campaignData,
