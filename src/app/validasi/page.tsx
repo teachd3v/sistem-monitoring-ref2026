@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { OrganOptions } from '@/lib/reference-data';
+import { OrganOptions, CampaignList } from '@/lib/reference-data';
 
 function parseItemDate(dateStr: string): number {
   try {
@@ -113,11 +113,11 @@ export default function ValidasiPage() {
     return Array.from(organs).sort();
   }, [dataList]);
 
-  // Get unique kode unik values for filter dropdown
+  // Get all possible kode unik values from master reference data
   const kodeUnikOptions = useMemo(() => {
-    const vals = new Set(dataList.map(item => String(item.validation?.kode_unik || '')).filter(v => v));
+    const vals = new Set(CampaignList.map(c => c.kode_unik).filter((k): k is string => Boolean(k)));
     return Array.from(vals).sort((a, b) => Number(a) - Number(b));
-  }, [dataList]);
+  }, []);
 
   const totalPages = Math.max(1, Math.ceil(filteredList.length / PAGE_SIZE));
   const pagedList = useMemo(() => {
