@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { REJECT_MARKER } from '@/lib/constants';
+import { cookies } from 'next/headers';
 
 /**
  * Parse date from formatted string like "Senin, 25/02/2026 10:30:45"
@@ -35,6 +36,17 @@ function parseFormattedDate(dateStr: string): Date | null {
 
 export async function GET() {
   try {
+    // Check viewer roles
+    const cookieStore = await cookies();
+    const token = cookieStore.get('validasi_token');
+    let role = 'validator';
+    let viewerProgram = '';
+
+    if (token && token.value.startsWith('viewer_session_')) {
+      role = 'viewer';
+      viewerProgram = token.value.replace('viewer_session_', '');
+    }
+
     // Fetch all data from Supabase
     const { data: financeValues, error } = await supabase
       .from('finance')
@@ -46,7 +58,7 @@ export async function GET() {
       return NextResponse.json([]);
     }
 
-    const allData = financeValues.map((row) => {
+    let allData = financeValues.map((row) => {
       const validator = row.nama_validator ? row.nama_validator.trim() : '';
       const catatan = row.catatan ? row.catatan.trim() : '';
       let status: string;
@@ -84,6 +96,14 @@ export async function GET() {
         },
       };
     });
+
+    // If viewer, filter the data
+    if (role === 'viewer') {
+      allData = allData.filter(item => 
+        item.status === 'Tervalidasi' && 
+        item.validation.pelaksana_program === viewerProgram
+      );
+    }
 
     // Sort by date (newest first)
     allData.sort((a, b) => {

@@ -18,8 +18,26 @@ export async function GET(req: Request) {
   const cookieStore = await cookies();
   const token = cookieStore.get(config.cookie);
 
-  if (token?.value === config.token) {
-    return NextResponse.json({ authenticated: true });
+  if (!token) {
+    return NextResponse.json({ authenticated: false });
+  }
+
+  // 1. Check exact match (e.g. validator or upload)
+  if (token.value === config.token) {
+    return NextResponse.json({ 
+      authenticated: true, 
+      role: type === 'validasi' ? 'validator' : 'finance' 
+    });
+  }
+
+  // 2. Check if validasi viewer token (only applicable for validasi type)
+  if (type === 'validasi' && token.value.startsWith('viewer_session_')) {
+    const program = token.value.replace('viewer_session_', '');
+    return NextResponse.json({ 
+      authenticated: true, 
+      role: 'viewer', 
+      program 
+    });
   }
 
   return NextResponse.json({ authenticated: false });

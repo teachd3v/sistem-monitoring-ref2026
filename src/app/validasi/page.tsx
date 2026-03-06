@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { OrganOptions, CampaignList } from '@/lib/reference-data';
+import { supabase } from '@/lib/supabase';
 
 function parseItemDate(dateStr: string): number {
   try {
@@ -26,10 +27,15 @@ export default function ValidasiPage() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [userRole, setUserRole] = useState('validator');
 
   const [dataList, setDataList] = useState<any[]>([]);
   const [dropdowns, setDropdowns] = useState<any>({});
   const [loading, setLoading] = useState(true);
+
+  // Merekam state user yang sedang online (Presence)
+  const [onlineUsers, setOnlineUsers] = useState<Record<string, any>>({});
+  const channelRef = useRef<any>(null);
 
   // State untuk Modal Validasi
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,6 +104,11 @@ export default function ValidasiPage() {
       let va: number | string, vb: number | string;
       if (sortField === 'date') { va = parseItemDate(a.date); vb = parseItemDate(b.date); }
       else if (sortField === 'amount') { va = parseAmountNum(a.amount); vb = parseAmountNum(b.amount); }
+      else if (sortField.startsWith('validation.')) {
+        const field = sortField.split('.')[1];
+        va = (a.validation?.[field] || '').toString().toLowerCase();
+        vb = (b.validation?.[field] || '').toString().toLowerCase();
+      }
       else { va = (a[sortField] || '').toString().toLowerCase(); vb = (b[sortField] || '').toString().toLowerCase(); }
       if (va < vb) return sortDir === 'asc' ? -1 : 1;
       if (va > vb) return sortDir === 'asc' ? 1 : -1;
@@ -148,6 +159,9 @@ export default function ValidasiPage() {
         const res = await fetch('/api/auth/check?type=validasi');
         const data = await res.json();
         setIsAuthenticated(data.authenticated);
+        if (data.authenticated) {
+          setUserRole(data.role || 'validator');
+        }
       } catch {
         setIsAuthenticated(false);
       }
@@ -171,6 +185,7 @@ export default function ValidasiPage() {
 
       if (data.success) {
         setIsAuthenticated(true);
+        setUserRole(data.role || 'validator');
       } else {
         setLoginError(data.message || 'Login gagal.');
       }
@@ -187,6 +202,7 @@ export default function ValidasiPage() {
       body: JSON.stringify({ type: 'validasi' })
     });
     setIsAuthenticated(false);
+    setUserRole('validator');
     setLoginUsername('');
     setLoginPassword('');
   };
@@ -212,8 +228,48 @@ export default function ValidasiPage() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
+
+      // Buat session ID unik untuk tab ini
+      const sessionId = Math.random().toString(36).substring(2, 9);
+      
+      // Ambil program secara spesifik (jika viewer, filterOrgan digunakan, jika bukan maka 'Validator')
+      const activeProgram = userRole === 'viewer' ? loginUsername.replace('viewer_', '').toUpperCase() : 'Validator';
+
+      // Setup Supabase Realtime Presence
+      const channel = supabase.channel('online-users', {
+        config: {
+          presence: {
+            key: sessionId,
+          },
+        },
+      });
+
+      channelRef.current = channel;
+
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const newState = channel.presenceState();
+          setOnlineUsers(newState);
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            await channel.track({
+              user: loginUsername,
+              role: userRole,
+              program: activeProgram,
+              onlineAt: new Date().toISOString(),
+            });
+          }
+        });
+
+      return () => {
+        // Cleanup channel saat komponen unmount (atau logout)
+        if (channelRef.current) {
+          channelRef.current.unsubscribe();
+        }
+      };
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userRole, loginUsername]);
 
   const openModal = (item: any) => {
     setSelectedItem(item);
@@ -463,6 +519,38 @@ export default function ValidasiPage() {
           </div>
         </div>
 
+        {/* Live Active Users Indicator (Hanya tampil untuk Validator, atau jika ada user online) */}
+        {isAuthenticated && userRole !== 'viewer' && Object.keys(onlineUsers).length > 0 && (
+          <div className="mb-4 bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-center gap-3">
+            <div className="flex -space-x-2">
+              <div className="w-8 h-8 rounded-full bg-emerald-200 border-2 border-white flex items-center justify-center relative z-10">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              </div>
+            </div>
+            <div className="flex-1 text-sm text-gray-700">
+              <span className="font-semibold">{Object.keys(onlineUsers).length}</span> pengguna sedang aktif:
+              
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {Object.values(onlineUsers).map((presenceArray: any, idx) => {
+                  const presence = presenceArray[0]; // Ambil koneksi pertama dari keys tersebut
+                  if (!presence) return null;
+                  
+                  const isViewer = presence.role === 'viewer';
+                  const badgeColor = isViewer ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800';
+                  const label = isViewer ? `Viewer: ${presence.program}` : 'Validator Utama';
+                  
+                  return (
+                    <span key={idx} className={`px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 ${badgeColor}`}>
+                      <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                      {label}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filter Bar */}
         {!loading && (
           <div className="flex flex-wrap items-end gap-3 mb-4">
@@ -577,6 +665,19 @@ export default function ValidasiPage() {
                   <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('nama_donatur')}>Donatur<SortIcon field="nama_donatur" /></th>
                   <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('keterangan')}>Keterangan<SortIcon field="keterangan" /></th>
                   <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('amount')}>Nominal<SortIcon field="amount" /></th>
+                  {userRole === 'viewer' && (
+                    <>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.nama_validator')}>Validator<SortIcon field="validation.nama_validator" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.kode_unik')}>Kode<SortIcon field="validation.kode_unik" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.campaign')}>Campaign<SortIcon field="validation.campaign" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.tipe_donatur')}>Tipe Donatur<SortIcon field="validation.tipe_donatur" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.jenis_donasi')}>Donasi<SortIcon field="validation.jenis_donasi" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.kategori')}>Kategori<SortIcon field="validation.kategori" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.pelaksana_program')}>Program<SortIcon field="validation.pelaksana_program" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.metode')}>Metode<SortIcon field="validation.metode" /></th>
+                      <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('validation.catatan')}>Catatan<SortIcon field="validation.catatan" /></th>
+                    </>
+                  )}
                   <th className="px-2 py-2.5 cursor-pointer hover:bg-gray-200 whitespace-nowrap" onClick={() => handleSort('status')}>Status<SortIcon field="status" /></th>
                   <th className="px-2 py-2.5 rounded-tr-lg text-center">Aksi</th>
                 </tr>
@@ -590,6 +691,19 @@ export default function ValidasiPage() {
                     <td className="px-2 py-2 max-w-[120px] truncate" title={item.nama_donatur}>{item.nama_donatur || '-'}</td>
                     <td className="px-2 py-2 max-w-[180px] truncate" title={item.keterangan}>{item.keterangan}</td>
                     <td className="px-2 py-2 font-bold text-gray-700 whitespace-nowrap">{item.amount}</td>
+                    {userRole === 'viewer' && (
+                       <>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.nama_validator || '-'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.kode_unik || '-'}</td>
+                          <td className="px-2 py-2 max-w-[150px] truncate" title={item.validation?.campaign || ''}>{item.validation?.campaign || '-'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.tipe_donatur || '-'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.jenis_donasi || '-'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.kategori || '-'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.pelaksana_program || '-'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{item.validation?.metode || '-'}</td>
+                          <td className="px-2 py-2 max-w-[150px] truncate" title={item.validation?.catatan || ''}>{item.validation?.catatan || '-'}</td>
+                       </>
+                     )}
                     <td className="px-2 py-2 whitespace-nowrap">
                       {item.status === 'Ditolak' ? (
                         <span className="px-2 py-0.5 bg-red-100 text-red-800 rounded-full text-xs font-bold">Ditolak</span>
@@ -603,29 +717,40 @@ export default function ValidasiPage() {
                     </td>
                     <td className="px-2 py-2 text-center">
                       <div className="flex justify-center gap-1">
-                        <button onClick={() => openEditModal(item)} title="Edit Data" className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-full transition-colors">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                          </svg>
-                        </button>
-                        <button onClick={() => openModal(item)} title="Lihat & Validasi" className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-full transition-colors">
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                          </svg>
-                        </button>
-                        {item.status === 'Ditolak' ? (
-                          <button onClick={() => handleUndoReject(item)} title="Batalkan Penolakan" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-full transition-colors">
+                        {userRole === 'viewer' ? (
+                          <button onClick={() => openModal(item)} title="Lihat Detail" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-full transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                             </svg>
                           </button>
                         ) : (
-                          <button onClick={() => handleReject(item)} title="Tolak Transaksi" className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                          <>
+                            <button onClick={() => openEditModal(item)} title="Edit Data" className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-full transition-colors">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                              </svg>
+                            </button>
+                            <button onClick={() => openModal(item)} title="Lihat & Validasi" className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-full transition-colors">
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                              </svg>
+                            </button>
+                            {item.status === 'Ditolak' ? (
+                              <button onClick={() => handleUndoReject(item)} title="Batalkan Penolakan" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-full transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                                </svg>
+                              </button>
+                            ) : (
+                              <button onClick={() => handleReject(item)} title="Tolak Transaksi" className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>
@@ -698,7 +823,7 @@ export default function ValidasiPage() {
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }} className="mb-3">
+              <fieldset disabled={userRole === 'viewer'} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.75rem' }} className="mb-3">
                 {/* Baris 1: 5 item */}
                 <div>
                   <label className="text-xs font-bold text-gray-600">Nama Validator</label>
@@ -767,13 +892,15 @@ export default function ValidasiPage() {
                   <label className="text-xs font-bold text-gray-600">Catatan</label>
                   <input type="text" name="catatan" value={formData.catatan} onChange={handleInputChange} className="w-full p-1.5 border border-gray-300 rounded text-xs text-gray-900 bg-white outline-none focus:border-emerald-500" placeholder="Catatan tambahan (opsional)..." />
                 </div>
-              </div>
+              </fieldset>
               
-              <div className="flex justify-end mt-4">
-                <button type="submit" className="px-6 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-2.5 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
-                  Simpan Data
-                </button>
-              </div>
+              {userRole !== 'viewer' && (
+                <div className="flex justify-end mt-4">
+                  <button type="submit" className="px-6 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-bold py-2.5 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md">
+                    Simpan Data
+                  </button>
+                </div>
+              )}
 
               {submitStatus && <p className="text-center text-sm font-medium mt-1 text-emerald-600">{submitStatus}</p>}
             </form>
