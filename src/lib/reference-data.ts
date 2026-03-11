@@ -69,10 +69,15 @@ export const CampaignList: Campaign[] = [
   { nama_campaign: 'Sedekah Ramadan', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Infak Umum' },
   { nama_campaign: 'Zakat Ramadan', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Zakat Umum' }, // override Zakat HOLDING
   { nama_campaign: 'Zakat Fitrah', kode_unik: null, pelaksana_program: 'HOLDING', jenis_donasi: 'Zakat Fitrah' },
-  { nama_campaign: 'Sedekah Project BA Jakarta', kode_unik: '64', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
-  { nama_campaign: 'Sedekah Project BA Surabaya', kode_unik: '65', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
-  { nama_campaign: 'Sedekah Project BA Palembang', kode_unik: '66', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
-  { nama_campaign: 'Sedekah Project BA Padang', kode_unik: '67', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Project Sosial BA Jakarta', kode_unik: '64', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Project Sosial BA Surabaya', kode_unik: '65', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Project Sosial BA Palembang', kode_unik: '66', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Project Sosial BA Padang', kode_unik: '67', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Project Sosial BA Medan', kode_unik: '68', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Gerakan 1000 Pengusaha Tangguh', kode_unik: '69', pelaksana_program: 'KBUU', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Sedekah Produktif: Satu Donatur, Satu Bisnis Bertumbuh', kode_unik: '70', pelaksana_program: 'KBUU', jenis_donasi: 'Infak Tematik' },
+  { nama_campaign: 'Zakat Alumni KBUU', kode_unik: '71', pelaksana_program: 'KBUU', jenis_donasi: 'Zakat Alumni' },
+  { nama_campaign: 'Social Project BA Surabaya', kode_unik: '72', pelaksana_program: 'TEACH', jenis_donasi: 'Infak Tematik' },
 ];
 
 // Combine to general dropdown structure for API compatibility if needed
