@@ -523,15 +523,30 @@ export default function DashboardPage() {
             <LineChart data={chartView === 'weekly' ? weeklyData : dailyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey={chartView === 'weekly' ? 'week' : 'date'} tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis yAxisId="left" tick={{ fontSize: 12 }} />
+              {chartView === 'daily' && (
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+              )}
               <Tooltip
-                formatter={(value: any) => formatRupiah(value)}
+                formatter={(value: any, name: string) => {
+                  if (name.includes('Donasi') || name === 'amount' || name.includes('Capaian')) {
+                    return formatRupiah(value);
+                  }
+                  return value;
+                }}
                 labelStyle={{ color: '#333' }}
               />
               <Legend />
-              <Line type="monotone" dataKey="capaian" stroke="#10b981" strokeWidth={2} name={chartView === 'weekly' ? 'Capaian Pekanan' : 'Capaian Harian'} dot={chartView === 'weekly'} />
-              {chartView === 'weekly' && (
-                <Line type="monotone" dataKey="target" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" name="Target Pekanan" />
+              {chartView === 'weekly' ? (
+                <>
+                  <Line yAxisId="left" type="monotone" dataKey="capaian" stroke="#10b981" strokeWidth={2} name="Capaian Pekanan" />
+                  <Line yAxisId="left" type="monotone" dataKey="target" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" name="Target Pekanan" />
+                </>
+              ) : (
+                <>
+                  <Line yAxisId="left" type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} name="Donasi Harian" />
+                  <Line yAxisId="right" type="monotone" dataKey="transactions" stroke="#6366f1" strokeWidth={2} name="Jumlah Transaksi" />
+                </>
               )}
             </LineChart>
           </ResponsiveContainer>

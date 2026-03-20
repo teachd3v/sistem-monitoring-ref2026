@@ -219,13 +219,9 @@ export async function GET(request: NextRequest) {
       });
 
     // Group by day for daily line chart
-    const dailyMap: { [key: string]: number } = {};
+    const dailyData: any[] = [];
     const sortedDates = [...new Set(validatedData.map(item => format(item.date, 'yyyy-MM-dd')))].sort();
     
-    // Fill gaps in dates if needed, but for now just use existing dates
-    const dailyData: any[] = [];
-    let cumulativeDaily = 0;
-
     // Get all dates in range
     const allDates: string[] = [];
     if (sortedDates.length > 0) {
@@ -238,15 +234,15 @@ export async function GET(request: NextRequest) {
     }
 
     allDates.forEach(dateStr => {
-      const dayAmount = validatedData
-        .filter(item => format(item.date, 'yyyy-MM-dd') === dateStr)
-        .reduce((sum, item) => sum + item.amount, 0);
+      const dayRows = validatedData.filter(item => format(item.date, 'yyyy-MM-dd') === dateStr);
+      const dayAmount = dayRows.reduce((sum, item) => sum + item.amount, 0);
+      const dayTransactions = dayRows.length;
       
-      cumulativeDaily += dayAmount;
       dailyData.push({
         date: format(new Date(dateStr), 'dd MMM', { locale: id }),
         fullDate: dateStr,
-        capaian: cumulativeDaily
+        amount: dayAmount,
+        transactions: dayTransactions
       });
     });
 
