@@ -528,8 +528,8 @@ export default function DashboardPage() {
                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
               )}
               <Tooltip
-                formatter={(value: any, name: string) => {
-                  if (name.includes('Donasi') || name === 'amount' || name.includes('Capaian')) {
+                formatter={(value: any, name: any) => {
+                  if (typeof name === 'string' && (name.includes('Donasi') || name === 'amount' || name.includes('Capaian'))) {
                     return formatRupiah(value);
                   }
                   return value;
