@@ -18,6 +18,15 @@ export default function DashboardPage() {
   const [campaigns, setCampaigns] = useState<string[]>([]);
   const [organs, setOrgans] = useState<string[]>([]);
 
+  // Chart view toggle
+  const [chartView, setChartView] = useState<'weekly' | 'daily'>('weekly');
+
+  // Sorting for top donors table
+  const [donorSortConfig, setDonorSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({
+    key: 'totalDonasi',
+    direction: 'desc'
+  });
+
   // Section 2: Event & Kemitraan data
   const [eventData, setEventData] = useState<any[]>([]);
   const [kemitraanData, setKemitraanData] = useState<any[]>([]);
@@ -194,7 +203,31 @@ export default function DashboardPage() {
     );
   }
 
-  const { summary, statusBreakdown, weeklyData, campaignData, organData, campaignTableData } = dashboardData;
+  const { summary, statusBreakdown, weeklyData, dailyData, campaignData, organData, campaignTableData, topDonors } = dashboardData;
+
+  // Sorting logic for Top Donors
+  const sortedTopDonors = [...(topDonors || [])].sort((a, b) => {
+    const { key, direction } = donorSortConfig;
+    let valA = a[key as keyof typeof a];
+    let valB = b[key as keyof typeof b];
+
+    if (key === 'nama') {
+      valA = (valA as string).toLowerCase();
+      valB = (valB as string).toLowerCase();
+    }
+
+    if (valA < valB) return direction === 'asc' ? -1 : 1;
+    if (valA > valB) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const requestDonorSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (donorSortConfig.key === key && donorSortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setDonorSortConfig({ key, direction });
+  };
 
   // Guard: jika summary tidak ada (misal API error), tampilkan pesan
   if (!summary) {
@@ -459,21 +492,47 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Line Chart: Capaian Pekanan */}
+        {/* Line Chart: Capaian Pekanan/Harian */}
         <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-4">📈 Capaian Penghimpunan Setiap Pekan</h2>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <h2 className="text-lg font-bold text-gray-800">📈 Capaian Penghimpunan {chartView === 'weekly' ? 'Setiap Pekan' : 'Setiap Hari'}</h2>
+            <div className="flex bg-gray-100 p-1 rounded-lg">
+              <button
+                onClick={() => setChartView('weekly')}
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${
+                  chartView === 'weekly' 
+                    ? 'bg-white text-emerald-700 shadow-sm' 
+                    : 'text-gray-500 hover:text-emerald-600'
+                }`}
+              >
+                Pekanan
+              </button>
+              <button
+                onClick={() => setChartView('daily')}
+                className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${
+                  chartView === 'daily' 
+                    ? 'bg-white text-emerald-700 shadow-sm' 
+                    : 'text-gray-500 hover:text-emerald-600'
+                }`}
+              >
+                Harian
+              </button>
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={weeklyData}>
+            <LineChart data={chartView === 'weekly' ? weeklyData : dailyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" tick={{ fontSize: 12 }} />
+              <XAxis dataKey={chartView === 'weekly' ? 'week' : 'date'} tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip
                 formatter={(value: any) => formatRupiah(value)}
                 labelStyle={{ color: '#333' }}
               />
               <Legend />
-              <Line type="monotone" dataKey="capaian" stroke="#10b981" strokeWidth={2} name="Capaian Pekanan" />
-              <Line type="monotone" dataKey="target" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" name="Target Pekanan" />
+              <Line type="monotone" dataKey="capaian" stroke="#10b981" strokeWidth={2} name={chartView === 'weekly' ? 'Capaian Pekanan' : 'Capaian Harian'} dot={chartView === 'weekly'} />
+              {chartView === 'weekly' && (
+                <Line type="monotone" dataKey="target" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 5" name="Target Pekanan" />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -557,6 +616,57 @@ export default function DashboardPage() {
             </div>
           </div>
 
+        </div>
+
+        {/* Top 10 Donatur Table */}
+        <div className="bg-white p-6 rounded-xl shadow-xl border border-emerald-100 mb-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">🏆 Top 10 Donatur</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-100 text-gray-700 text-sm border-b-2 border-gray-200">
+                  <th 
+                    className="p-3 cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => requestDonorSort('nama')}
+                  >
+                    Nama {donorSortConfig.key === 'nama' ? (donorSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                  </th>
+                  <th 
+                    className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => requestDonorSort('totalDonasi')}
+                  >
+                    Total Donasi {donorSortConfig.key === 'totalDonasi' ? (donorSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                  </th>
+                  <th 
+                    className="p-3 text-right cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => requestDonorSort('totalTransaksi')}
+                  >
+                    Total Transaksi {donorSortConfig.key === 'totalTransaksi' ? (donorSortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="text-sm text-gray-800">
+                {sortedTopDonors.length > 0 ? (
+                  sortedTopDonors.map((item: any, idx: number) => (
+                    <tr key={idx} className="border-b hover:bg-gray-50">
+                      <td className="p-3 font-medium">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400 w-5">#{idx + 1}</span>
+                          {item.nama}
+                        </div>
+                      </td>
+                      <td className="p-3 text-right font-bold text-emerald-600">{formatRupiah(item.totalDonasi)}</td>
+                      <td className="p-3 text-right font-semibold text-gray-600">{item.totalTransaksi}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="p-3 text-center text-gray-500">Tidak ada data</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         </div>

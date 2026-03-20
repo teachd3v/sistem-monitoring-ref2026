@@ -218,6 +218,38 @@ export async function GET(request: NextRequest) {
         });
       });
 
+    // Group by day for daily line chart
+    const dailyMap: { [key: string]: number } = {};
+    const sortedDates = [...new Set(validatedData.map(item => format(item.date, 'yyyy-MM-dd')))].sort();
+    
+    // Fill gaps in dates if needed, but for now just use existing dates
+    const dailyData: any[] = [];
+    let cumulativeDaily = 0;
+
+    // Get all dates in range
+    const allDates: string[] = [];
+    if (sortedDates.length > 0) {
+      const firstDate = new Date(sortedDates[0]);
+      const lastDate = new Date(sortedDates[sortedDates.length - 1]);
+      
+      for (let d = new Date(firstDate); d <= lastDate; d.setDate(d.getDate() + 1)) {
+        allDates.push(format(d, 'yyyy-MM-dd'));
+      }
+    }
+
+    allDates.forEach(dateStr => {
+      const dayAmount = validatedData
+        .filter(item => format(item.date, 'yyyy-MM-dd') === dateStr)
+        .reduce((sum, item) => sum + item.amount, 0);
+      
+      cumulativeDaily += dayAmount;
+      dailyData.push({
+        date: format(new Date(dateStr), 'dd MMM', { locale: id }),
+        fullDate: dateStr,
+        capaian: cumulativeDaily
+      });
+    });
+
     // Group by campaign for bar chart
     const campaignMap: { [key: string]: number } = {};
 
@@ -262,6 +294,27 @@ export async function GET(request: NextRequest) {
       jumlah_donasi: item.capaian
     }));
 
+    // Top 10 Donors
+    const donorMap: { [key: string]: { totalDonasi: number, totalTransaksi: number } } = {};
+
+    validatedData.forEach(item => {
+      const name = item.nama_donatur || 'Hamba Allah';
+      if (!donorMap[name]) {
+        donorMap[name] = { totalDonasi: 0, totalTransaksi: 0 };
+      }
+      donorMap[name].totalDonasi += item.amount;
+      donorMap[name].totalTransaksi += 1;
+    });
+
+    const topDonors = Object.entries(donorMap)
+      .map(([nama, stats]) => ({
+        nama,
+        totalDonasi: stats.totalDonasi,
+        totalTransaksi: stats.totalTransaksi
+      }))
+      .sort((a, b) => b.totalDonasi - a.totalDonasi)
+      .slice(0, 10);
+
     return NextResponse.json({
       summary: {
         totalDonasi,
@@ -284,9 +337,11 @@ export async function GET(request: NextRequest) {
         organReview,
       },
       weeklyData,
+      dailyData,
       campaignData,
       organData,
-      campaignTableData
+      campaignTableData,
+      topDonors
     });
 
   } catch (error) {
